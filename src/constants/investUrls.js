@@ -1,7 +1,16 @@
 export const INVEST_URLS = {
-  "120503": "https://www.groww.in/mutual-funds/axis-bluechip-fund-direct-plan-growth",
-  "118989": "https://www.groww.in/mutual-funds/hdfc-corporate-bond-fund-direct-plan-growth",
-  "118590": "https://www.groww.in/mutual-funds/hdfc-balanced-advantage-fund-direct-plan-growth",
-  "120505": "https://www.groww.in/mutual-funds/axis-liquid-fund-direct-plan-growth",
-  "119551": "https://www.groww.in/mutual-funds/axis-midcap-fund-direct-plan-growth",
+  // Equity - Axis Bluechip / Large Cap Fund Direct Growth (scheme 120503)
+  "120503": "https://groww.in/mutual-funds/axis-large-cap-fund-direct-growth",
+
+  // Debt - HDFC Corporate Bond Fund Direct Plan Growth (scheme 118989)
+  "118989": "https://groww.in/mutual-funds/hdfc-medium-term-opportunities-fund-direct-growth",
+
+  // Hybrid - HDFC Balanced Advantage Fund Direct Growth (scheme 118590)
+  "118590": "https://groww.in/mutual-funds/hdfc-balanced-advantage-fund-direct-growth",
+
+  // Liquid - HDFC Liquid Direct Plan Growth (scheme 120505)
+  "120505": "https://groww.in/mutual-funds/hdfc-liquid-fund-direct-growth",
+
+  // Mid Cap - Axis Midcap Direct Plan Growth (scheme 119551)
+  "119551": "https://groww.in/mutual-funds/axis-midcap-fund-direct-growth",
 };
