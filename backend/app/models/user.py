@@ -35,3 +35,6 @@ class FundRecommendation(BaseModel):
     allocation_amount: float
     reason: str
     investment_url: str
+
+    class Config:
+        use_enum_values = True
