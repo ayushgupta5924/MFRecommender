@@ -1,0 +1,15 @@
+export const S = {
+  page:        { minHeight: "100vh", background: "#f0f2f5" },
+  appBar:      { background: "#1976d2", padding: "0 24px", display: "flex", alignItems: "center", gap: 14, height: 56, position: "sticky", top: 0, zIndex: 10 },
+  backBtn:     { background: "none", border: "none", color: "#fff", fontSize: 22, cursor: "pointer", lineHeight: 1, padding: 0 },
+  hero:        { background: "linear-gradient(180deg,#1976d2,#1e88e5)", padding: "32px 24px 28px", textAlign: "center", color: "#fff" },
+  body:        { maxWidth: 760, margin: "0 auto", padding: "24px 20px 48px" },
+  card:        { background: "#fff", borderRadius: 16, padding: "20px 24px", marginBottom: 16, boxShadow: "0 1px 4px rgba(0,0,0,0.08)" },
+  sectionHead: { fontSize: 17, fontWeight: 700, color: "#111", marginBottom: 16 },
+  label:       { fontSize: 13, color: "#888", marginBottom: 4, display: "block" },
+  inputWrap:   { position: "relative", marginBottom: 14 },
+  input:       { width: "100%", padding: "13px 14px 13px 40px", border: "1.5px solid #e0e0e0", borderRadius: 12, background: "#fafafa", fontSize: 15, outline: "none", color: "#222", boxSizing: "border-box" },
+  iconLeft:    { position: "absolute", left: 13, top: "50%", transform: "translateY(-50%)", fontSize: 17, color: "#1976d2", pointerEvents: "none" },
+  btnBlue:     { background: "#1976d2", color: "#fff", border: "none", borderRadius: 14, padding: "16px 32px", fontSize: 16, fontWeight: 700, cursor: "pointer", width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 8 },
+  divider:     { border: "none", borderTop: "1px solid #f0f0f0", margin: "12px 0" },
+};
