@@ -1,0 +1,95 @@
+/* ── Info hero ────────────────────────────────────────────────── */
+.infoHero {
+  background: linear-gradient(135deg, #1565c0 0%, #1976d2 60%, #7b1fa2 100%);
+  padding: 52px 24px 44px;
+  text-align: center;
+  color: #fff;
+}
+.infoHero__icon { font-size: 58px; }
+.infoHero__title { font-size: 36px; font-weight: 800; margin-top: 14px; }
+.infoHero__subtitle { font-size: 17px; color: rgba(255,255,255,0.85); margin-top: 8px; }
+
+/* ── Section heading ──────────────────────────────────────────── */
+.sectionTitle { font-size: 24px; font-weight: 700; color: #111; margin-bottom: 4px; }
+.sectionSubtitle { font-size: 15px; color: #888; margin-bottom: 24px; }
+
+/* ── Factor card ──────────────────────────────────────────────── */
+.factorCard {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px;
+  border-radius: 14px;
+  margin-bottom: 12px;
+  border: 1px solid;
+}
+.factorIcon {
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  flex-shrink: 0;
+}
+.factorTitle { font-size: 15px; font-weight: 700; }
+.factorDesc { font-size: 13px; color: #666; margin-top: 3px; }
+
+/* ── Expansion tile ───────────────────────────────────────────── */
+.expansionBox {
+  border-radius: 14px;
+  overflow: hidden;
+  margin-bottom: 20px;
+  border: 1px solid #ddd;
+}
+.expansionHeader {
+  background: linear-gradient(90deg, #1565c0, #7b1fa2);
+  padding: 14px 20px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  cursor: pointer;
+}
+.expansionHeader__icon { font-size: 26px; }
+.expansionHeader__title { color: #fff; font-size: 15px; font-weight: 700; flex: 1; }
+.expansionHeader__subtitle { color: rgba(255,255,255,0.75); font-size: 12px; }
+.expansionChevron { color: #fff; font-size: 16px; transition: transform 0.2s; }
+.expansionChevron--open { transform: rotate(180deg); }
+.expansionBody { background: #fff; padding: 24px; }
+
+/* ── Strategy section ─────────────────────────────────────────── */
+.strategySection { margin-bottom: 20px; }
+.strategyHeader { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+.strategyIconWrap { padding: 5px 8px; border-radius: 8px; }
+.strategyTitle { font-size: 15px; font-weight: 700; }
+.strategyDesc { font-size: 13px; font-weight: 500; color: #333; margin-bottom: 8px; }
+.strategyPoint { display: flex; gap: 8px; margin-bottom: 5px; padding-left: 4px; }
+.strategyDot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; margin-top: 6px; }
+.strategyPointText { font-size: 13px; color: #555; }
+
+/* ── Amber notice ─────────────────────────────────────────────── */
+.amberNotice {
+  background: #fffde7;
+  border: 1px solid #ffe082;
+  border-radius: 10px;
+  padding: 14px;
+  display: flex;
+  gap: 12px;
+  margin-top: 8px;
+  align-items: flex-start;
+}
+.amberNotice__text { font-size: 13px; font-weight: 500; }
+
+/* ── Realtime box ─────────────────────────────────────────────── */
+.realtimeBox {
+  background: linear-gradient(90deg, #e3f0fb, #dce8f7);
+  border-radius: 14px;
+  padding: 18px 24px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+.realtimeBox__icon { font-size: 36px; }
+.realtimeBox__title { font-size: 17px; font-weight: 700; }
+.realtimeBox__subtitle { font-size: 13px; color: #555; margin-top: 2px; }

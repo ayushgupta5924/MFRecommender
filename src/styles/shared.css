@@ -1,0 +1,125 @@
+/* ── Base ─────────────────────────────────────────────────────── */
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  background: #f0f2f5;
+}
+
+/* ── Page ─────────────────────────────────────────────────────── */
+.page { min-height: 100vh; background: #f0f2f5; }
+
+/* ── AppBar ───────────────────────────────────────────────────── */
+.appBar {
+  background: #1976d2;
+  padding: 0 24px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  height: 56px;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+.appBar__title { font-size: 17px; font-weight: 700; color: #fff; }
+.backBtn {
+  background: none;
+  border: none;
+  color: #fff;
+  font-size: 22px;
+  cursor: pointer;
+  line-height: 1;
+  padding: 0;
+}
+
+/* ── Hero ─────────────────────────────────────────────────────── */
+.hero {
+  background: linear-gradient(180deg, #1976d2, #1e88e5);
+  padding: 32px 24px 28px;
+  text-align: center;
+  color: #fff;
+}
+.hero__icon { font-size: 48px; }
+.hero__title { font-size: 20px; font-weight: 700; margin-top: 10px; }
+.hero__subtitle { font-size: 13px; color: rgba(255,255,255,0.8); margin-top: 5px; }
+
+/* ── Body container ───────────────────────────────────────────── */
+.body { max-width: 760px; margin: 0 auto; padding: 24px 20px 48px; }
+
+/* ── Card ─────────────────────────────────────────────────────── */
+.card {
+  background: #fff;
+  border-radius: 16px;
+  padding: 20px 24px;
+  margin-bottom: 16px;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+}
+.card__title { font-size: 17px; font-weight: 700; color: #111; margin-bottom: 16px; }
+
+/* ── Form fields ──────────────────────────────────────────────── */
+.fieldWrap { position: relative; margin-bottom: 14px; }
+.fieldLabel { font-size: 13px; color: #888; margin-bottom: 4px; display: block; }
+.fieldIcon {
+  position: absolute;
+  left: 13px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 17px;
+  color: #1976d2;
+  pointer-events: none;
+}
+.fieldInput {
+  width: 100%;
+  padding: 13px 14px 13px 40px;
+  border: 1.5px solid #e0e0e0;
+  border-radius: 12px;
+  background: #fafafa;
+  font-size: 15px;
+  outline: none;
+  color: #222;
+  transition: border 0.15s;
+}
+.fieldInput:focus { border-color: #1976d2; }
+
+/* ── Buttons ──────────────────────────────────────────────────── */
+.btnBlue {
+  background: #1976d2;
+  color: #fff;
+  border: none;
+  border-radius: 14px;
+  padding: 16px 32px;
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition: background 0.15s;
+}
+.btnBlue:hover { background: #1565c0; }
+.btnBlue:disabled { opacity: 0.7; cursor: not-allowed; }
+
+.btnWhite {
+  background: #fff;
+  color: #1565c0;
+  border: none;
+  border-radius: 14px;
+  padding: 14px 40px;
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 28px;
+  transition: opacity 0.15s;
+}
+.btnWhite:hover { opacity: 0.9; }
+
+/* ── Divider ──────────────────────────────────────────────────── */
+.divider { border: none; border-top: 1px solid #f0f0f0; margin: 12px 0; }
+
+/* ── Error text ───────────────────────────────────────────────── */
+.errorText { color: #c62828; font-size: 13px; margin-top: 12px; line-height: 1.5; }

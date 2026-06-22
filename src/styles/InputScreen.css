@@ -1,0 +1,54 @@
+/* ── Risk option ──────────────────────────────────────────────── */
+.riskOption {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 16px;
+  border-radius: 12px;
+  border: 1px solid #e0e0e0;
+  background: #fafafa;
+  cursor: pointer;
+  margin-bottom: 10px;
+  transition: all 0.15s;
+}
+.riskOption--selected { border-width: 2px; }
+.riskIcon {
+  width: 44px;
+  height: 44px;
+  border-radius: 11px;
+  background: #eee;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  flex-shrink: 0;
+}
+.riskLabel { font-weight: 700; font-size: 15px; color: #222; }
+.riskDesc { font-size: 12px; color: #888; margin-top: 2px; }
+.riskCheck { font-size: 22px; color: #ccc; }
+
+/* ── Goal row ─────────────────────────────────────────────────── */
+.goalRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 13px 0;
+  border-bottom: 1px solid #f4f4f4;
+  cursor: pointer;
+}
+.goalRow:last-child { border-bottom: none; }
+.goalLabel { font-size: 15px; color: #222; }
+.goalCheckbox {
+  width: 22px;
+  height: 22px;
+  border-radius: 5px;
+  border: 2px solid #bbb;
+  background: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: all 0.15s;
+}
+.goalCheckbox--checked { background: #1976d2; border-color: #1976d2; }
+.goalCheckmark { color: #fff; font-size: 13px; font-weight: 700; line-height: 1; }
