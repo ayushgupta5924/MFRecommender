@@ -4,6 +4,25 @@ import { GOALS } from "../constants/goals";
 import { RISK_OPTIONS } from "../constants/risk";
 import { S } from "../styles/shared";
 
+// Defined OUTSIDE component to prevent re-render focus loss
+function Field({ label, icon, value, onChange, placeholder }) {
+  return (
+    <div style={S.inputWrap}>
+      <label style={S.label}>{label}</label>
+      <div style={{ position: "relative" }}>
+        <span style={S.iconLeft}>{icon}</span>
+        <input
+          type="number"
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder={placeholder}
+          style={S.input}
+        />
+      </div>
+    </div>
+  );
+}
+
 export default function InputScreen({ onBack, onResults }) {
   const [budget, setBudget]   = useState("");
   const [age, setAge]         = useState("");
@@ -36,16 +55,6 @@ export default function InputScreen({ onBack, onResults }) {
       setLoading(false);
     }
   };
-
-  const Field = ({ label, icon, value, onChange, placeholder }) => (
-    <div style={S.inputWrap}>
-      <label style={S.label}>{label}</label>
-      <div style={{ position: "relative" }}>
-        <span style={S.iconLeft}>{icon}</span>
-        <input type="number" value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} style={S.input} />
-      </div>
-    </div>
-  );
 
   return (
     <div style={S.page}>
