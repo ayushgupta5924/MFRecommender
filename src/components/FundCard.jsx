@@ -1,3 +1,4 @@
+import { INVEST_URLS } from "../constants/investUrls";
 import { S } from "../styles/shared";
 import { getCategoryColor } from "../utils/colors";
 
@@ -10,6 +11,7 @@ export default function FundCard({ fund }) {
   const r1 = fund.returns_1y ?? null;
   const r3 = fund.returns_3y ?? null;
   const r5 = fund.returns_5y ?? null;
+  const investUrl = INVEST_URLS[fund.scheme_code] || "https://www.groww.in/mutual-funds";
 
   const RetVal = ({ period, val }) => val == null ? null : (
     <div style={{ textAlign: "center", flex: 1, background: "#fafafa", borderRadius: 10, padding: "8px 4px", border: "1px solid #f0f0f0" }}>
@@ -22,6 +24,7 @@ export default function FundCard({ fund }) {
 
   return (
     <div style={{ background: "#fff", borderRadius: 16, marginBottom: 16, overflow: "hidden", boxShadow: "0 2px 8px rgba(0,0,0,0.07)" }}>
+      {/* Card top */}
       <div style={{ padding: "14px 18px", background: color + "14", borderBottom: `1px solid ${color}22` }}>
         <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 10 }}>
           <span style={{ padding: "4px 12px", borderRadius: 20, fontSize: 12, fontWeight: 700, color: "#fff", background: color }}>{fund.category || "Fund"}</span>
@@ -30,6 +33,7 @@ export default function FundCard({ fund }) {
         <div style={{ fontSize: 15, fontWeight: 700, color: "#111", lineHeight: 1.4 }}>{fund.scheme_name || "Unknown Fund"}</div>
       </div>
 
+      {/* Card body */}
       <div style={{ padding: "16px 18px" }}>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 12 }}>
           {[["Current NAV", nav], ["Allocation", alloc]].map(([lbl, val]) => (
@@ -68,7 +72,8 @@ export default function FundCard({ fund }) {
           </>
         )}
 
-        <button onClick={() => window.open(fund.investment_url || "#", "_blank")}
+        <button
+          onClick={() => window.open(investUrl, "_blank")}
           style={{ ...S.btnBlue, marginTop: 14, borderRadius: 10, padding: "12px", fontSize: 14 }}>
           🔗 Invest Now
         </button>
