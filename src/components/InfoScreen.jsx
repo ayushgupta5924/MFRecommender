@@ -20,17 +20,19 @@ export default function InfoScreen({ onNext }) {
         <Disclaimer />
 
         <div className="sectionTitle">How It Works</div>
-        <div className="sectionSubtitle">We analyze 4 key factors:</div>
+        <div className="sectionSubtitle">We analyze 4 key factors to match funds to your profile:</div>
 
-        {FACTORS.map((f) => (
-          <div key={f.title} className="factorCard" style={{ background: f.bg, borderColor: f.border }}>
-            <div className="factorIcon" style={{ background: f.color }}>{f.emoji}</div>
-            <div>
-              <div className="factorTitle" style={{ color: f.color }}>{f.title}</div>
-              <div className="factorDesc">{f.desc}</div>
+        <div className="factorGrid">
+          {FACTORS.map((f) => (
+            <div key={f.title} className="factorCard" style={{ background: f.bg, borderColor: f.border }}>
+              <div className="factorIcon" style={{ background: f.color }}>{f.emoji}</div>
+              <div>
+                <div className="factorTitle" style={{ color: f.color }}>{f.title}</div>
+                <div className="factorDesc">{f.desc}</div>
+              </div>
             </div>
-          </div>
-        ))}
+          ))}
+        </div>
 
         <div className="expansionBox">
           <div className="expansionHeader" onClick={() => setExpanded(!expanded)}>
