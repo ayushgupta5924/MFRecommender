@@ -2,21 +2,23 @@ import { useState } from "react";
 import { FACTORS, STRATEGIES } from "../constants/strategies";
 import "../styles/InfoScreen.css";
 import "../styles/shared.css";
+import Disclaimer from "./Disclaimer";
 
 export default function InfoScreen({ onNext }) {
   const [expanded, setExpanded] = useState(false);
 
   return (
     <div className="page">
-      {/* Hero */}
       <div className="infoHero">
         <div className="infoHero__icon">💼</div>
         <div className="infoHero__title">MF Advisor</div>
-        <div className="infoHero__subtitle">Smart Mutual Fund Recommendations</div>
+        <div className="infoHero__subtitle">Discover mutual funds based on your investor profile</div>
         <button className="btnWhite" onClick={onNext}>🚀 Get Started →</button>
       </div>
 
       <div className="body">
+        <Disclaimer />
+
         <div className="sectionTitle">How It Works</div>
         <div className="sectionSubtitle">We analyze 4 key factors:</div>
 
@@ -30,7 +32,6 @@ export default function InfoScreen({ onNext }) {
           </div>
         ))}
 
-        {/* Expandable strategy */}
         <div className="expansionBox">
           <div className="expansionHeader" onClick={() => setExpanded(!expanded)}>
             <span className="expansionHeader__icon">🧠</span>
@@ -61,13 +62,12 @@ export default function InfoScreen({ onNext }) {
               ))}
               <div className="amberNotice">
                 <span>✨</span>
-                <span className="amberNotice__text">All recommendations use real-time NAV data and historical performance metrics to ensure accuracy.</span>
+                <span className="amberNotice__text">All fund data uses real-time NAV and historical performance metrics from MFApi.</span>
               </div>
             </div>
           )}
         </div>
 
-        {/* Real-time data */}
         <div className="realtimeBox">
           <span className="realtimeBox__icon">🛡️</span>
           <div>

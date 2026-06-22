@@ -1,114 +1,17 @@
-/* ── Fund card ────────────────────────────────────────────────── */
-.fundCard {
-  background: #fff;
-  border-radius: 16px;
-  margin-bottom: 16px;
-  overflow: hidden;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.07);
-}
-
-/* ── Card top ─────────────────────────────────────────────────── */
-.fundCard__top { padding: 14px 18px; }
-.fundCard__badges { display: flex; justify-content: space-between; margin-bottom: 10px; }
-.fundCard__pill {
-  padding: 4px 12px;
-  border-radius: 20px;
-  font-size: 12px;
-  font-weight: 700;
-  color: #fff;
-}
-.fundCard__riskPill {
-  padding: 4px 12px;
-  border-radius: 20px;
-  font-size: 12px;
-  font-weight: 700;
-  background: #fff;
-  border: 1px solid;
-}
-.fundCard__name { font-size: 15px; font-weight: 700; color: #111; line-height: 1.4; }
-
-/* ── Card body ────────────────────────────────────────────────── */
-.fundCard__body { padding: 16px 18px; }
-
-/* ── Metrics grid ─────────────────────────────────────────────── */
-.metricsGrid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 10px;
-  margin-bottom: 12px;
-}
-.metricBox {
-  text-align: center;
-  background: #fafafa;
-  border-radius: 10px;
-  padding: 10px 8px;
-  border: 1px solid #f0f0f0;
-}
-.metricBox__label { font-size: 12px; color: #888; }
-.metricBox__value { font-size: 16px; font-weight: 700; margin-top: 3px; }
-
-/* ── Invest box ───────────────────────────────────────────────── */
-.investBox {
-  background: #e8f5e9;
-  border-radius: 10px;
-  padding: 11px 14px;
+/* ── Powered by strip ─────────────────────────────────────────── */
+.poweredBy {
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
-  margin-bottom: 12px;
+  font-size: 13px;
+  color: #888;
+  margin: 8px 0 20px;
 }
-.investBox__amount { font-size: 16px; font-weight: 700; color: #2e7d32; }
-
-/* ── Returns ──────────────────────────────────────────────────── */
-.returnsTitle { font-weight: 700; font-size: 13px; margin-bottom: 8px; color: #444; }
-.returnsGrid { display: flex; gap: 8px; }
-.returnBox {
-  text-align: center;
-  flex: 1;
-  background: #fafafa;
-  border-radius: 10px;
-  padding: 8px 4px;
-  border: 1px solid #f0f0f0;
-}
-.returnBox__period { font-size: 12px; color: #888; }
-.returnBox__value { font-size: 14px; font-weight: 700; margin-top: 3px; }
-.returnBox__value--positive { color: #2e7d32; }
-.returnBox__value--negative { color: #c62828; }
-
-/* ── Why section ──────────────────────────────────────────────── */
-.whyRow { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
-.whyTitle { font-weight: 700; font-size: 13px; color: #444; }
-.whyText { font-size: 13px; color: #777; margin: 0; line-height: 1.6; }
-
-/* ── Invest button ────────────────────────────────────────────── */
-.investBtn {
-  background: #1976d2;
-  color: #fff;
-  border: none;
-  border-radius: 10px;
-  padding: 12px;
+.poweredBy__link {
+  color: #00b386;
+  font-weight: 700;
+  text-decoration: none;
   font-size: 14px;
-  font-weight: 700;
-  cursor: pointer;
-  width: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  margin-top: 14px;
-  transition: background 0.15s;
 }
-.investBtn:hover { background: #1565c0; }
-
-/* ── Results header ───────────────────────────────────────────── */
-.resultsHero {
-  background: linear-gradient(180deg, #1976d2, #1e88e5);
-  padding: 36px 24px 30px;
-  text-align: center;
-  color: #fff;
-}
-.resultsHero__icon { font-size: 50px; }
-.resultsHero__amount { font-size: 36px; font-weight: 800; margin-top: 10px; }
-.resultsHero__count { font-size: 15px; color: rgba(255,255,255,0.85); margin-top: 6px; }
-.resultsEmpty { text-align: center; color: #888; font-size: 15px; margin-top: 40px; }
+.poweredBy__link:hover { text-decoration: underline; }

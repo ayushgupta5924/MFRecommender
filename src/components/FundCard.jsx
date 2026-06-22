@@ -1,4 +1,4 @@
-import { INVEST_URLS } from "../constants/investUrls";
+import { FALLBACK_URL, INVEST_URLS } from "../constants/investUrls";
 import "../styles/FundCard.css";
 import "../styles/shared.css";
 import { getCategoryColor } from "../utils/colors";
@@ -12,7 +12,7 @@ export default function FundCard({ fund }) {
   const r1        = fund.returns_1y ?? null;
   const r3        = fund.returns_3y ?? null;
   const r5        = fund.returns_5y ?? null;
-  const investUrl = INVEST_URLS[fund.scheme_code] || "https://www.groww.in/mutual-funds";
+  const investUrl = INVEST_URLS[fund.scheme_code] || FALLBACK_URL;
 
   const RetVal = ({ period, val }) => val == null ? null : (
     <div className="returnBox">
@@ -72,7 +72,7 @@ export default function FundCard({ fund }) {
         )}
 
         <button className="investBtn" onClick={() => window.open(investUrl, "_blank")}>
-          🔗 Invest Now
+          📈 Invest on Groww
         </button>
       </div>
     </div>

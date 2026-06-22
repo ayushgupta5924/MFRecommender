@@ -1,16 +1,12 @@
+const AFFILIATE_CODE = "YOUR_GROWW_AFFILIATE_CODE";
+const BASE = "https://groww.in/mutual-funds";
+
 export const INVEST_URLS = {
-  // Equity - Axis Bluechip / Large Cap Fund Direct Growth (scheme 120503)
-  "120503": "https://groww.in/mutual-funds/axis-large-cap-fund-direct-growth",
-
-  // Debt - HDFC Corporate Bond Fund Direct Plan Growth (scheme 118989)
-  "118989": "https://groww.in/mutual-funds/hdfc-medium-term-opportunities-fund-direct-growth",
-
-  // Hybrid - HDFC Balanced Advantage Fund Direct Growth (scheme 118590)
-  "118590": "https://groww.in/mutual-funds/hdfc-balanced-advantage-fund-direct-growth",
-
-  // Liquid - HDFC Liquid Direct Plan Growth (scheme 120505)
-  "120505": "https://groww.in/mutual-funds/hdfc-liquid-fund-direct-growth",
-
-  // Mid Cap - Axis Midcap Direct Plan Growth (scheme 119551)
-  "119551": "https://groww.in/mutual-funds/axis-midcap-fund-direct-growth",
+  "120503": `${BASE}/axis-large-cap-fund-direct-growth?ref=${AFFILIATE_CODE}`,
+  "118989": `${BASE}/hdfc-medium-term-opportunities-fund-direct-growth?ref=${AFFILIATE_CODE}`,
+  "118590": `${BASE}/hdfc-balanced-advantage-fund-direct-growth?ref=${AFFILIATE_CODE}`,
+  "120505": `${BASE}/hdfc-liquid-direct-plan-growth?ref=${AFFILIATE_CODE}`,
+  "119551": `${BASE}/axis-midcap-fund-direct-growth?ref=${AFFILIATE_CODE}`,
 };
+
+export const FALLBACK_URL = `https://groww.in/mutual-funds?ref=${AFFILIATE_CODE}`;
