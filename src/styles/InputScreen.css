@@ -1,54 +1,145 @@
-/* ── Risk option ──────────────────────────────────────────────── */
+.stepBadge {
+  margin-left: auto;
+  font-size: 12px;
+  color: rgba(255,255,255,0.8);
+  background: rgba(255,255,255,0.15);
+  padding: 4px 10px;
+  border-radius: 20px;
+}
+
+.progressBar {
+  height: 4px;
+  background: #e0e0e0;
+  width: 100%;
+}
+.progressBar__fill {
+  height: 100%;
+  background: #1976d2;
+  transition: width 0.3s ease;
+}
+
+.stepTitle    { font-size: 22px; font-weight: 800; color: #111; margin-bottom: 6px; }
+.stepSubtitle { font-size: 15px; color: #888; margin-bottom: 24px; }
+
+/* ── Life stage grid ── */
+.stageGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-bottom: 24px;
+}
+.stageCard {
+  padding: 16px;
+  border-radius: 14px;
+  border: 1.5px solid #e0e0e0;
+  background: #fff;
+  cursor: pointer;
+  transition: all 0.15s;
+  text-align: center;
+}
+.stageCard:hover { border-color: #1976d2; background: #f0f7ff; }
+.stageCard--selected { border-color: #1976d2; background: #e8f0fe; }
+.stageCard__emoji { font-size: 28px; margin-bottom: 8px; }
+.stageCard__label { font-size: 14px; font-weight: 700; color: #222; }
+.stageCard__desc  { font-size: 12px; color: #888; margin-top: 3px; }
+
+/* ── Goal grid ── */
+.goalGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-bottom: 24px;
+}
+.goalCard {
+  padding: 16px;
+  border-radius: 14px;
+  border: 1.5px solid #e0e0e0;
+  background: #fff;
+  cursor: pointer;
+  transition: all 0.15s;
+  text-align: center;
+}
+.goalCard:hover { border-color: #1976d2; background: #f0f7ff; }
+.goalCard--selected { border-color: #1976d2; background: #e8f0fe; }
+.goalCard__emoji { font-size: 26px; margin-bottom: 8px; }
+.goalCard__label { font-size: 14px; font-weight: 700; color: #222; }
+.goalCard__desc  { font-size: 12px; color: #888; margin-top: 3px; }
+
+/* ── Risk options ── */
 .riskOption {
   display: flex;
   align-items: center;
   gap: 14px;
-  padding: 14px 16px;
+  padding: 16px;
   border-radius: 12px;
-  border: 1px solid #e0e0e0;
+  border: 1.5px solid #e0e0e0;
   background: #fafafa;
   cursor: pointer;
-  margin-bottom: 10px;
+  margin-bottom: 12px;
   transition: all 0.15s;
 }
 .riskOption--selected { border-width: 2px; }
 .riskIcon {
-  width: 44px;
-  height: 44px;
-  border-radius: 11px;
+  width: 46px;
+  height: 46px;
+  border-radius: 12px;
   background: #eee;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 20px;
+  font-size: 22px;
   flex-shrink: 0;
 }
 .riskLabel { font-weight: 700; font-size: 15px; color: #222; }
-.riskDesc { font-size: 12px; color: #888; margin-top: 2px; }
-.riskCheck { font-size: 22px; color: #ccc; }
+.riskDesc  { font-size: 13px; color: #888; margin-top: 2px; }
 
-/* ── Goal row ─────────────────────────────────────────────────── */
-.goalRow {
+/* ── SIP result ── */
+.sipResult {
+  background: linear-gradient(135deg, #e8f5e9, #f1f8e9);
+  border: 1px solid #a5d6a7;
+  border-radius: 12px;
+  padding: 16px;
+  margin-top: 16px;
+  text-align: center;
+}
+.sipResult__label  { font-size: 13px; color: #555; margin-bottom: 6px; }
+.sipResult__amount { font-size: 28px; font-weight: 800; color: #2e7d32; }
+.sipResult__month  { font-size: 15px; font-weight: 400; color: #555; margin-left: 4px; }
+.sipResult__note   { font-size: 12px; color: #777; margin-top: 6px; }
+
+/* ── Or divider ── */
+.orDivider {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  padding: 13px 0;
-  border-bottom: 1px solid #f4f4f4;
-  cursor: pointer;
+  gap: 12px;
+  margin: 16px 0;
+  color: #bbb;
+  font-size: 13px;
 }
-.goalRow:last-child { border-bottom: none; }
-.goalLabel { font-size: 15px; color: #222; }
-.goalCheckbox {
-  width: 22px;
-  height: 22px;
-  border-radius: 5px;
-  border: 2px solid #bbb;
-  background: #fff;
+.orDivider::before,
+.orDivider::after {
+  content: "";
+  flex: 1;
+  border-top: 1px solid #e0e0e0;
+}
+
+/* ── Step nav ── */
+.stepNav { margin-top: 24px; }
+
+/* ── Powered by ── */
+.poweredBy {
   display: flex;
   align-items: center;
   justify-content: center;
-  flex-shrink: 0;
-  transition: all 0.15s;
+  gap: 8px;
+  font-size: 13px;
+  color: #888;
+  margin: 8px 0 20px;
 }
-.goalCheckbox--checked { background: #1976d2; border-color: #1976d2; }
-.goalCheckmark { color: #fff; font-size: 13px; font-weight: 700; line-height: 1; }
+.poweredBy__link {
+  color: #00b386;
+  font-weight: 700;
+  text-decoration: none;
+  font-size: 14px;
+}
+.poweredBy__link:hover { text-decoration: underline; }

@@ -45,7 +45,9 @@ export default function FundCard({ fund }) {
 
         <div className="investBox">
           <span>💰</span>
-          <span className="investBox__amount">Invest: {investAmt}</span>
+          <span className="investBox__amount">
+            Monthly SIP: ₹{Math.round(fund.monthly_sip_amount || fund.allocation_amount).toLocaleString("en-IN")}
+          </span>
         </div>
 
         {(r1 != null || r3 != null || r5 != null) && (

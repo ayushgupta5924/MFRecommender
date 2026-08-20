@@ -64,7 +64,7 @@ export default function InfoScreen({ onNext }) {
               ))}
               <div className="amberNotice">
                 <span>✨</span>
-                <span className="amberNotice__text">All fund data uses real-time NAV and historical performance metrics from MFApi.</span>
+                <span className="amberNotice__text">All fund data uses real-time NAV and historical performance metrics.</span>
               </div>
             </div>
           )}
@@ -74,7 +74,7 @@ export default function InfoScreen({ onNext }) {
           <span className="realtimeBox__icon">🛡️</span>
           <div>
             <div className="realtimeBox__title">Real-time Data</div>
-            <div className="realtimeBox__subtitle">Live NAV & verified historical returns from MFApi</div>
+            <div className="realtimeBox__subtitle">Live NAV & verified historical returns</div>
           </div>
         </div>
       </div>

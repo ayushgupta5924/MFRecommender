@@ -10,7 +10,7 @@ export default function App() {
 
   const handleResults = (data, b) => {
     setResults(data);
-    setBudget(b);
+    setBudget(data?.monthly_sip_required || b || 0);
     setScreen("results");
   };
 

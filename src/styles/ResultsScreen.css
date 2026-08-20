@@ -1,0 +1,59 @@
+/* ── Portfolio hero ── */
+.portfolioHero {
+  background: linear-gradient(135deg, #1565c0 0%, #1976d2 60%, #7b1fa2 100%);
+  padding: 32px 24px 28px;
+  text-align: center;
+  color: #fff;
+}
+.portfolioHero__name {
+  font-size: 26px;
+  font-weight: 800;
+  letter-spacing: -0.3px;
+}
+.portfolioHero__desc {
+  font-size: 15px;
+  color: rgba(255,255,255,0.85);
+  margin-top: 6px;
+  margin-bottom: 20px;
+}
+
+/* ── SIP strip ── */
+.sipStrip {
+  display: flex;
+  justify-content: center;
+  gap: 0;
+  background: rgba(255,255,255,0.12);
+  border-radius: 14px;
+  padding: 4px;
+  flex-wrap: wrap;
+}
+.sipStrip__item {
+  flex: 1;
+  min-width: 80px;
+  text-align: center;
+  padding: 12px 8px;
+}
+.sipStrip__label {
+  font-size: 11px;
+  color: rgba(255,255,255,0.75);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 4px;
+}
+.sipStrip__value {
+  font-size: 16px;
+  font-weight: 800;
+  color: #fff;
+}
+
+/* ── Old results hero (backward compat) ── */
+.resultsHero {
+  background: linear-gradient(180deg, #1976d2, #1e88e5);
+  padding: 36px 24px 30px;
+  text-align: center;
+  color: #fff;
+}
+.resultsHero__icon   { font-size: 50px; }
+.resultsHero__amount { font-size: 36px; font-weight: 800; margin-top: 10px; }
+.resultsHero__count  { font-size: 15px; color: rgba(255,255,255,0.85); margin-top: 6px; }
+.resultsEmpty        { text-align: center; color: #888; font-size: 15px; margin-top: 40px; }
