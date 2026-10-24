@@ -196,7 +196,7 @@ def build_rankings(schemes: List[Scheme], histories: Dict[str, List[Tuple[str, f
         funds.sort(key=lambda f: f["scores"]["balanced"], reverse=True)
 
         def med(metric):
-            vals = [f[metric] for f in funds if f[metric] is not None]
+            vals = [f[metric] for f in funds if f.get(metric) is not None]
             return _round(median(vals)) if vals else None
 
         stats = {"count": len(funds)}
