@@ -248,3 +248,9 @@ a.investBtn { display: block; text-align: center; text-decoration: none; }
 .fundCard__infoLink { color: #1565c0; font-weight: 600; text-decoration: none; white-space: nowrap; }
 .fundCard__infoLink:hover { text-decoration: underline; }
 .alternatives__name a { color: inherit; }
+.factList { display: flex; flex-direction: column; gap: 6px; margin-bottom: 10px; }
+.factRow { display: flex; justify-content: space-between; gap: 12px; font-size: 13px; }
+.factRow__label { color: #757575; white-space: nowrap; }
+.factRow__value { text-align: right; font-weight: 600; color: #212121; }
+.factRow__value small { font-weight: 400; color: #757575; }
+.factWarn { font-size: 13px; background: #fff8e1; border-radius: 8px; padding: 8px 10px; margin-bottom: 10px; color: #6d4c00; }

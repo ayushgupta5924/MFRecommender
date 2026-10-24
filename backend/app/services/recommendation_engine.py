@@ -8,6 +8,7 @@ from app.models.user import (
 )
 from app.services import allocation as alloc
 from app.services.catalog import BUCKETS
+from app.services.fund_facts import size_note
 from app.services.rankings_store import RankingsStore, scheme_map, store as default_store
 
 INFLATION = 0.06
@@ -322,7 +323,9 @@ class RecommendationEngine:
             if not candidates:
                 continue
             # Spread across fund houses: take the best fund from an AMC not already used, if it is in the top 5.
-            choice = next((f for f in candidates[:5] if f["amc"] not in used_amcs), candidates[0])
+            # A track record belongs to the managers who built it, so skip funds whose managers changed this year.
+            choice = (next((f for f in candidates[:5] if f["amc"] not in used_amcs and not f.get("manager_changed")), None)
+                      or next((f for f in candidates[:5] if f["amc"] not in used_amcs), candidates[0]))
             used_amcs.add(choice["amc"])
             rank = candidates.index(choice) + 1
             alternatives = [f for f in candidates if f["code"] != choice["code"]][:2]
@@ -368,6 +371,21 @@ class RecommendationEngine:
             category_median_5y=pct(stats.get("median_cagr_5y")),
             years_history=round(f["years_history"], 1),
             lock_in_years=bucket.lock_in_years,
+            expense_ratio=f.get("ter"),
+            category_median_expense_ratio=stats.get("median_ter"),
+            aum_cr=f.get("aum_cr"),
+            size_note=size_note(f, bucket_key, bucket.sleeve, bucket.label.lower()),
+            benchmark=data["buckets"][bucket_key].get("benchmark"),
+            excess_return=pct(f.get("excess_return")),
+            beat_rate=pct(f.get("beat_rate"), 0),
+            down_capture=pct(f.get("down_capture"), 0),
+            managers=f.get("managers") or [],
+            manager_since=f.get("manager_since"),
+            manager_changed=f.get("manager_changed"),
+            stocks=f.get("stocks") or None,
+            top10_pct=f.get("top10_pct"),
+            cash_pct=f.get("cash_pct"),
+            portfolio_date=f.get("portfolio_date"),
             alternatives=[FundAlternative(
                 scheme_name=a["name"], scheme_code=a["code"], amc=a["amc"],
                 info_url=scheme_map.fund_page_url(a["code"]),
@@ -412,6 +430,9 @@ class RecommendationEngine:
 
     # ── Explanations ─────────────────────────────────────────────────────────
 
+    def _rankings_bucket(self, key: str) -> Optional[dict]:
+        return self.rankings.get()["buckets"].get(key)
+
     def _reason(self, bucket, f, rank, rank_of, stats, scoring_profile, profile, horizon, seasoned="") -> str:
         profile_word = {"conservative": "a conservative", "balanced": "a moderate", "aggressive": "an aggressive"}[scoring_profile]
         parts = [bucket.role, f"Ranked #{rank} of {rank_of} {bucket.label} funds{seasoned} for {profile_word} investor."]
@@ -423,6 +444,16 @@ class RecommendationEngine:
         dd, cat_dd = f.get("max_drawdown"), stats.get("median_max_drawdown")
         if dd is not None and cat_dd is not None and bucket.sleeve != "debt":
             parts.append(f"Worst fall in 5 yrs {dd * 100:.0f}% vs category {cat_dd * 100:.0f}%.")
+        index = (self._rankings_bucket(bucket.key) or {}).get("benchmark")
+        if index and f.get("beat_rate") is not None and f.get("down_capture") is not None:
+            parts.append(f"Beat the {index} index in {f['beat_rate'] * 100:.0f}% of 3-year periods and took "
+                         f"{f['down_capture'] * 100:.0f}% of its monthly falls.")
+        ter, cat_ter = f.get("ter"), stats.get("median_ter")
+        if ter is not None and cat_ter is not None:
+            parts.append(f"Expense ratio {ter:.2f}% a year vs category median {cat_ter:.2f}%.")
+        note = size_note(f, bucket.key, bucket.sleeve, bucket.label.lower())
+        if note:
+            parts.append(note)
 
         if bucket.key == "elss" and profile.goal == InvestmentGoal.TAX_SAVING:
             parts.append("Up to ₹1.5 lakh a year is deductible under Section 80C (old tax regime only).")

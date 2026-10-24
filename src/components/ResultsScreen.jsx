@@ -268,9 +268,10 @@ export default function ResultsScreen() {
         }
 
         <div className="dataNote">
-          Fund data as of {fmtDate(results.data_as_of)} from AMFI and mfapi.in. Funds are ranked within their SEBI
-          category on 3- and 5-year returns, rolling-return consistency, volatility and worst fall, weighted for
-          your risk profile. Methodology v{results.methodology_version}.
+          Fund data as of {fmtDate(results.data_as_of)} from AMFI, mfapi.in and Kuvera. Funds are ranked within their
+          SEBI category on returns, consistency, falls, record against their index, expense ratio and fund size,
+          weighted for your risk profile (<Link to="/how-advice-works">how it works</Link>). Methodology
+          v{results.methodology_version}.
         </div>
 
         <Disclaimer />

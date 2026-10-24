@@ -21,7 +21,9 @@ from typing import Dict, List, Optional, Tuple
 from app.services import nav as navs
 from app.services.catalog import BUCKETS
 from app.services.ranking import tidy_name
-from app.services.rankings_store import RankingsStore, SchemeMapStore
+from app.services.fund_facts import size_fit, size_note
+from app.services.rankings_store import HoldingsStore, RankingsStore, SchemeMapStore
+from app.services.rankings_store import holdings as default_holdings
 from app.services.rankings_store import scheme_map as default_scheme_map
 from app.services.rankings_store import store as default_rankings
 
@@ -40,6 +42,9 @@ ELSS_LOCK_DAYS = 3 * 365
 MAX_EQUITY_FUNDS = 6
 THEMATIC_LIMIT = 0.20              # share of equity in sectoral / thematic funds before we flag it
 DRIFT_LIMIT = 10                   # percentage points of equity away from the saved plan
+OVERLAP_LIMIT = 40                 # % of two funds' portfolios in the same stocks before we flag the pair
+OVERSIZED_FIT = 0.6                # size_fit below this: the fund is well past what its category can absorb
+COSTLY_GAP = 0.4                   # expense ratio this many points above the category median
 
 DEBT_NAME_RE = re.compile(r"\b(sdl|gilt|g-sec|gsec|bond|debt|psu|crisil ibx|t-bill|liquid|money market|"
                           r"target maturity|nifty .*(aaa|psu))", re.IGNORECASE)
@@ -175,9 +180,10 @@ def cash_flows(txns: List[list]) -> List[Tuple[date, float]]:
 
 class Reviewer:
     def __init__(self, rankings: RankingsStore = default_rankings, schemes: SchemeMapStore = default_scheme_map,
-                 fetch_histories=None):
+                 fetch_histories=None, holdings: HoldingsStore = default_holdings):
         self.rankings = rankings
         self.schemes = schemes
+        self.holdings = holdings
         self.fetch_histories = fetch_histories or (lambda codes: navs.histories(codes))
 
     def _rate(self, twin: Optional[str], bucket: Optional[str], data: dict) -> dict:
@@ -197,10 +203,17 @@ class Reviewer:
         stats = data["buckets"][bucket]["stats"]
         return {
             "status": status, "rank": pos + 1, "rank_of": n,
-            "reason": f"Ranked {pos + 1} of {n} {BUCKETS[bucket].label} funds on returns, consistency and falls.",
+            "reason": f"Ranked {pos + 1} of {n} {BUCKETS[bucket].label} funds on returns, consistency, falls, "
+                      "costs, fund size and record against its index.",
             "metrics": {k: f.get(k) for k in ("cagr_1y", "cagr_3y", "cagr_5y", "max_drawdown", "volatility",
-                                              "rolling_median", "years_history")},
-            "category": {k: stats.get(f"median_{k}") for k in ("cagr_1y", "cagr_3y", "cagr_5y", "max_drawdown")},
+                                              "rolling_median", "years_history", "ter", "aum_cr", "excess_return",
+                                              "beat_rate", "down_capture", "stocks", "top10_pct", "cash_pct",
+                                              "managers", "manager_since", "manager_changed")},
+            "category": {k: stats.get(f"median_{k}") for k in ("cagr_1y", "cagr_3y", "cagr_5y", "max_drawdown",
+                                                                  "ter")},
+            "benchmark": data["buckets"][bucket].get("benchmark"),
+            "size_note": size_note(f, bucket, BUCKETS[bucket].sleeve, BUCKETS[bucket].label.lower()),
+            "size_fit": size_fit(f.get("aum_cr"), bucket, BUCKETS[bucket].sleeve),
         }
 
     def _alternatives(self, bucket: str, exclude: str, amc: str, data: dict) -> List[dict]:
@@ -325,7 +338,8 @@ class Reviewer:
         rated_value = sum(v["value"] for k, v in by_status.items() if k != "not_rated")
         good_value = by_status["in_form"]["value"] + by_status["on_track"]["value"]
 
-        insights = self._insights(rows, valued, total, allocation, target, by_status)
+        stocks, overlaps = self._look_through(valued)
+        insights = self._insights(rows, valued, total, allocation, target, by_status, overlaps)
 
         lt = sum(r["lt_gain"] or 0 for r in valued if r["lt_gain"] is not None)
         st = sum(r["st_gain"] or 0 for r in valued if r["st_gain"] is not None)
@@ -353,11 +367,47 @@ class Reviewer:
             "tax": {"lt_gain": round(lt, 2), "st_gain": round(st, 2), "elss_locked": round(elss, 2),
                     "complete": tax_complete, "ltcg_exemption": LTCG_EXEMPTION},
             "insights": insights,
+            "top_stocks": stocks,
+            "overlaps": overlaps,
             "holdings": rows,
             "unrecognised": [{"id": h["id"], "name": h.get("name"), "units": h.get("units")} for h in unknown],
         }
 
-    def _insights(self, rows, valued, total, allocation, target, by_status) -> List[dict]:
+    def _look_through(self, valued: List[dict]) -> Tuple[List[dict], List[dict]]:
+        """The companies your money is really in, across all funds, and pairs of funds that own the same stocks.
+
+        Uses each fund's latest disclosed portfolio (its Direct-Growth twin's, which is the same portfolio).
+        """
+        books = {}
+        for r in valued:
+            twin = (self.schemes.schemes().get(r["code"]) or {}).get("twin")
+            rows = self.holdings.of(twin) if twin else []
+            if rows:
+                books[r["code"]] = {(isin or name): (name, pct) for isin, name, pct in rows}
+        equity_money = sum(r["value"] for r in valued if r["code"] in books)
+        exposure: Dict[str, list] = {}
+        for r in valued:
+            for key, (name, pct) in books.get(r["code"], {}).items():
+                e = exposure.setdefault(key, [name, 0.0, 0])
+                e[1] += r["value"] * pct / 100
+                e[2] += 1
+        top = sorted(exposure.values(), key=lambda e: -e[1])[:10]
+        stocks = [{"name": n, "value": round(v, 2), "pct": round(100 * v / equity_money, 2) if equity_money else None,
+                   "funds": k} for n, v, k in top]
+
+        names = {r["code"]: r["name"] for r in valued}
+        codes = sorted(books)
+        overlaps = []
+        for i, a in enumerate(codes):
+            for b in codes[i + 1:]:
+                common = books[a].keys() & books[b].keys()
+                share = sum(min(books[a][k][1], books[b][k][1]) for k in common)
+                if share >= 1:
+                    overlaps.append({"a": names[a], "b": names[b], "pct": round(share, 1), "common": len(common)})
+        overlaps.sort(key=lambda o: -o["pct"])
+        return stocks, overlaps[:10]
+
+    def _insights(self, rows, valued, total, allocation, target, by_status, overlaps=()) -> List[dict]:
         out = []
         share = (lambda v: f"{100 * v / total:.0f}%") if total else (lambda v: "—")
 
@@ -399,6 +449,40 @@ class Reviewer:
                         "text": "Funds in the same category usually own many of the same stocks, so each extra one "
                                 f"adds little diversification. {'One or two' if len(rs) >= 3 else 'One'} good fund is "
                                 f"usually enough; of yours, {best} ranks highest."})
+
+        heavy = [o for o in overlaps if o["pct"] >= OVERLAP_LIMIT]
+        if heavy:
+            pairs = "; ".join(f"{o['a']} and {o['b']} ({o['pct']:.0f}%)" for o in heavy[:3])
+            out.append({"level": "medium", "key": "overlap",
+                        "title": f"{_plural(len(heavy), 'pair')} of funds own largely the same stocks",
+                        "text": f"Measured on their latest disclosed portfolios: {pairs}. Money in both is close to "
+                                "money in one, with two sets of costs. Consider keeping the better-ranked one."})
+
+        big = [r for r in valued if (r["rating"].get("size_fit") or 1) < OVERSIZED_FIT]
+        if big:
+            out.append({"level": "medium", "key": "oversized",
+                        "title": f"{_plural(len(big), 'fund')} very large for its category",
+                        "text": " ".join(r["rating"]["size_note"] for r in big[:2] if r["rating"].get("size_note"))
+                                + " Past returns were earned when the fund was smaller; consider a smaller, "
+                                  "well-ranked fund in the same category for new money."})
+
+        costly = [r for r in valued if r["plan"] == "Direct"
+                  and (r["rating"].get("metrics") or {}).get("ter") is not None
+                  and (r["rating"].get("category") or {}).get("ter") is not None
+                  and r["rating"]["metrics"]["ter"] - r["rating"]["category"]["ter"] >= COSTLY_GAP]
+        if costly:
+            out.append({"level": "low", "key": "costly",
+                        "title": f"{_plural(len(costly), 'fund')} with high costs for its category",
+                        "text": "; ".join(f"{r['name']} charges {r['rating']['metrics']['ter']:.2f}% a year vs "
+                                          f"{r['rating']['category']['ter']:.2f}% typical" for r in costly[:3])
+                                + ". Costs are taken every year whatever the fund returns."})
+
+        changed = [r for r in valued if (r["rating"].get("metrics") or {}).get("manager_changed")]
+        if changed:
+            out.append({"level": "low", "key": "manager_change",
+                        "title": f"New fund manager at {_plural(len(changed), 'fund')}",
+                        "text": "The past returns of " + ", ".join(r["name"] for r in changed) + " were earned by "
+                                "a different team. Keep an eye on them over the next year."})
 
         equity_funds = [r for r in valued if r["sleeve"] == "equity"]
         if len(equity_funds) > MAX_EQUITY_FUNDS:

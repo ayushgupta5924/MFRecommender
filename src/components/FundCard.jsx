@@ -16,6 +16,46 @@ function RetVal({ period, val, median }) {
   );
 }
 
+const crore = (n) => `₹${Math.round(n).toLocaleString("en-IN")} cr`;
+
+// What we look at beyond past returns: costs, size, the index, the portfolio and the people running it.
+function FundFacts({ fund: f }) {
+  const rows = [];
+  if (f.expense_ratio != null) {
+    rows.push(["Expense ratio", `${f.expense_ratio.toFixed(2)}% a year`,
+      f.category_median_expense_ratio != null ? `category ${f.category_median_expense_ratio.toFixed(2)}%` : null]);
+  }
+  if (f.aum_cr != null) rows.push(["Fund size", crore(f.aum_cr), null]);
+  if (f.benchmark && f.beat_rate != null) {
+    rows.push([`vs ${f.benchmark}`, `beat it in ${Math.round(f.beat_rate)}% of 3-yr periods`,
+      f.down_capture != null ? `took ${Math.round(f.down_capture)}% of its falls` : null]);
+  }
+  if (f.stocks) {
+    rows.push(["Portfolio", `${f.stocks} stocks${f.top10_pct != null ? ` · top 10 = ${Math.round(f.top10_pct)}%` : ""}`,
+      f.cash_pct != null ? `cash ${f.cash_pct.toFixed(1)}%${f.portfolio_date ? `, ${fmtDate(f.portfolio_date)}` : ""}` : null]);
+  }
+  if (f.managers?.length) {
+    rows.push(["Fund manager", f.managers.join(", "),
+      f.manager_changed ? `new since ${fmtDate(f.manager_since)}` : null]);
+  }
+  if (!rows.length) return null;
+  return (
+    <>
+      <hr className="divider" />
+      <div className="returnsTitle">Beyond past returns</div>
+      <div className="factList">
+        {rows.map(([label, value, note]) => (
+          <div key={label} className="factRow">
+            <span className="factRow__label">{label}</span>
+            <span className="factRow__value">{value}{note && <small> · {note}</small>}</span>
+          </div>
+        ))}
+      </div>
+      {f.size_note && <div className="factWarn">⚠️ {f.size_note}</div>}
+    </>
+  );
+}
+
 export default function FundCard({ fund }) {
   const [showAlternatives, setShowAlternatives] = useState(false);
   const risk  = fund.risk_level || "";
@@ -79,6 +119,8 @@ export default function FundCard({ fund }) {
             <div className="metricBox__value">{pct(fund.max_drawdown)}</div>
           </div>
         </div>
+
+        <FundFacts fund={fund} />
 
         {fund.reason && (
           <>

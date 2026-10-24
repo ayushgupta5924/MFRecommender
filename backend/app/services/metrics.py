@@ -115,6 +115,43 @@ def fund_metrics(dates: np.ndarray, navs: np.ndarray, risk_free: float, rolling_
     return out
 
 
+def relative_metrics(dates: np.ndarray, navs: np.ndarray, b_dates: np.ndarray, b_navs: np.ndarray,
+                     min_months: int = 36) -> Dict[str, Optional[float]]:
+    """How a fund did against its benchmark over the months both have NAVs (at most the last 5 years).
+
+    excess_return: annualised return above the benchmark.
+    up_capture / down_capture: the fund's average month as a share of the benchmark's, in rising and in falling
+        months. 0.8 down capture means it fell 80% as much as the market in bad months; lower is better.
+    beat_rate: share of rolling 3-year periods (up to the last 10 years) in which the fund beat the benchmark.
+    """
+    out: Dict[str, Optional[float]] = {"excess_return": None, "up_capture": None, "down_capture": None,
+                                       "beat_rate": None}
+    if len(dates) < 2 or len(b_dates) < 2:
+        return out
+    fm, fv = month_end_series(dates, navs)
+    bm, bv = month_end_series(b_dates, b_navs)
+    common, fi, bi = np.intersect1d(fm, bm, return_indices=True)
+    fv, bv = fv[fi], bv[bi]
+
+    recent_f, recent_b = fv[-61:], bv[-61:]
+    f_r = recent_f[1:] / recent_f[:-1] - 1
+    b_r = recent_b[1:] / recent_b[:-1] - 1
+    if len(f_r) >= min_months:
+        years = len(f_r) / 12
+        out["excess_return"] = float((recent_f[-1] / recent_f[0]) ** (1 / years) - (recent_b[-1] / recent_b[0]) ** (1 / years))
+        up, down = b_r > 0, b_r < 0
+        if up.sum() >= 6:
+            out["up_capture"] = float(np.mean(f_r[up]) / np.mean(b_r[up]))
+        if down.sum() >= 6:
+            out["down_capture"] = float(np.mean(f_r[down]) / np.mean(b_r[down]))
+
+    f_roll = rolling_cagr(fv[-121:], 36)
+    b_roll = rolling_cagr(bv[-121:], 36)
+    if len(f_roll) >= 6:
+        out["beat_rate"] = float(np.mean(f_roll > b_roll))
+    return out
+
+
 def percentile_ranks(values: List[Optional[float]], higher_is_better: bool, missing: float = 0.35) -> List[float]:
     """Rank each value within the list as 0..1 (1 = best). Missing values get `missing`."""
     present = [(i, v) for i, v in enumerate(values) if v is not None and np.isfinite(v)]

@@ -107,9 +107,39 @@ class SchemeMapStore(RankingsStore):
         return FUND_PAGE_URL.format(isin=isin) if isin else None
 
 
+class HoldingsStore(RankingsStore):
+    """Each Direct-Growth scheme's disclosed stock holdings ([isin, company, % of AUM]); refreshed weekly."""
+
+    EMPTY = {"schema_version": 1, "generated_at": "", "portfolio_date": None, "holdings": {}}
+
+    def __init__(self):
+        rankings_url = os.getenv("RANKINGS_URL", "")
+        super().__init__(BUNDLED_PATH.with_name("holdings.json"),
+                         rankings_url.replace("rankings.json", "holdings.json") if rankings_url else "")
+        self.name = "Holdings"
+
+    def _valid(self, data: dict) -> bool:
+        return isinstance(data, dict) and data.get("schema_version") == 1 and isinstance(data.get("holdings"), dict)
+
+    def _newer(self, data: dict) -> bool:
+        return data.get("generated_at", "") >= (self._data or {}).get("generated_at", "")
+
+    def _load_bundled(self) -> None:
+        # Optional data: without the file, reviews simply skip stock-level overlap.
+        try:
+            super()._load_bundled()
+        except (OSError, ValueError, RuntimeError) as e:
+            logger.warning("No holdings data: %s", e)
+            self._data, self._loaded_at = self.EMPTY, (0.0 if self.url else time.time())
+
+    def of(self, code: str) -> list:
+        return self.get()["holdings"].get(code) or []
+
+
 # A neutral page with the fund's facts (NAV, expense ratio, holdings, fund manager), addressed by ISIN so the link
 # always lands on the right fund. Coin lists every fund house's Direct plans.
 FUND_PAGE_URL = "https://coin.zerodha.com/mf/fund/{isin}"
 
 store = RankingsStore()
 scheme_map = SchemeMapStore()
+holdings = HoldingsStore()

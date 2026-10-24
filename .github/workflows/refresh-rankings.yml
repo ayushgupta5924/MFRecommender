@@ -16,7 +16,7 @@ concurrency:
 jobs:
   refresh:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 45
     defaults:
       run:
         working-directory: backend
@@ -40,12 +40,13 @@ jobs:
 
       - name: Commit if changed
         run: |
-          if git diff --quiet -- app/data/rankings.json app/data/scheme_map.json; then
+          git add -N app/data/fund_facts.json app/data/holdings.json 2>/dev/null || true
+          if git diff --quiet -- app/data/rankings.json app/data/scheme_map.json app/data/fund_facts.json app/data/holdings.json; then
             echo "Rankings unchanged."
             exit 0
           fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add app/data/rankings.json app/data/scheme_map.json
+          git add app/data/rankings.json app/data/scheme_map.json app/data/fund_facts.json app/data/holdings.json
           git commit -m "data: refresh fund rankings [skip render]"
           git push

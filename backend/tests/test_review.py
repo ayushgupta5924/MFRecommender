@@ -214,3 +214,31 @@ def test_guest_review_needs_no_account_and_stores_only_the_advice_record(monkeyp
         assert db.query(AdviceRecord).filter(AdviceRecord.user_id.is_(None),
                                              AdviceRecord.kind == "review").count() == records_before + 2
         assert db.query(Portfolio).count() == portfolios_before
+
+
+class FakeHoldings:
+    def __init__(self, books):
+        self.books = books
+
+    def of(self, code):
+        return self.books.get(code, [])
+
+
+def test_look_through_shows_real_stock_exposure_and_overlapping_funds():
+    a, b, c = (ranked(k, "top")["code"] for k in ("flexi_cap", "large_cap", "small_cap"))
+    shared = [["INE1", "Big Bank", 30.0], ["INE2", "Big IT", 20.0], ["INE3", "Big Oil", 10.0]]
+    books = FakeHoldings({a: shared + [["INE9", "Only A", 40.0]],
+                          b: shared + [["INE8", "Only B", 40.0]],
+                          c: [["INE7", "Small Co", 100.0]]})
+    r = Reviewer(fetch_histories=histories(), holdings=books).review(
+        [holding(a, units=100), holding(b, units=100), holding(c, units=100)], today=TODAY)
+    top = {s["name"]: s for s in r["top_stocks"]}
+    assert top["Big Bank"]["funds"] == 2 and top["Small Co"]["pct"] == pytest.approx(100 / 3, abs=0.1)
+    pair = r["overlaps"][0]
+    assert {pair["a"], pair["b"]} == {h["name"] for h in r["holdings"] if h["code"] in (a, b)}
+    assert pair["pct"] == 60.0 and pair["common"] == 3
+    assert any(i["key"] == "overlap" for i in r["insights"])
+
+    # No disclosed portfolios: nothing to show, nothing invented.
+    r = Reviewer(fetch_histories=histories(), holdings=FakeHoldings({})).review([holding(a)], today=TODAY)
+    assert r["top_stocks"] == [] and r["overlaps"] == []

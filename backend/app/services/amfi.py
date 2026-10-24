@@ -143,3 +143,10 @@ def build_scheme_map(lines: Iterable[str]) -> Dict[str, dict]:
             "direct": direct, "growth": growth, "twin": twin, "bucket": bucket.key if bucket else None,
         }
     return out
+
+
+def index_fund_rows(lines: Iterable[str]) -> List[dict]:
+    """Open-ended index funds, for picking benchmark stand-ins (catalog.benchmark_funds)."""
+    return [{"code": r["code"], "name": r["name"],
+             "direct_growth": _is_direct(r["plan"], r["name"]) and _is_growth(r["option"], r["name"])}
+            for r in iter_open_ended(lines) if "index fund" in r["name"].lower()]

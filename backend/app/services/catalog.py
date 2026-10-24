@@ -99,6 +99,36 @@ EXCLUDED_NAME_RE = _re(
 )
 
 
+# The index each active equity bucket is measured against (the broad index SEBI's category definitions follow).
+# Index funds tracking it stand in for the index: they are what an investor could buy instead, costs included.
+# Each entry: (label, [(index, weight), ...]). Nifty LargeMidcap 250 is by design 50% Nifty 100 and 50% Nifty
+# Midcap 150, and index funds tracking those have far longer histories than LargeMidcap 250 ones.
+BENCHMARKS = {
+    "large_cap": ("Nifty 100", [("Nifty 100", 1.0)]),
+    "flexi_cap": ("Nifty 500", [("Nifty 500", 1.0)]),
+    "elss": ("Nifty 500", [("Nifty 500", 1.0)]),
+    "large_mid": ("Nifty LargeMidcap 250", [("Nifty 100", 0.5), ("Nifty Midcap 150", 0.5)]),
+    "mid_cap": ("Nifty Midcap 150", [("Nifty Midcap 150", 1.0)]),
+    "small_cap": ("Nifty Smallcap 250", [("Nifty Smallcap 250", 1.0)]),
+}
+_INDEX_VARIANT_RE = _re(r"equal|momentum|quality|value|alpha|low vol|shariah|elss|tax|\betf\b|fof|50:25|multicap")
+
+
+def benchmark_funds(rows) -> dict:
+    """index name -> AMFI code of the oldest Direct-Growth index fund tracking it (longest history).
+
+    rows are dicts with code, name and a `direct_growth` flag (see amfi.index_fund_rows).
+    """
+    out = {}
+    for index in {i for _, parts in BENCHMARKS.values() for i, _ in parts}:
+        pattern = _re(r"\b" + r"\s*".join(map(re.escape, index.split())) + r"\s+index fund\b")
+        matches = [r for r in rows if r["direct_growth"] and pattern.search(r["name"])
+                   and not _INDEX_VARIANT_RE.search(r["name"])]
+        if matches:
+            out[index] = min(matches, key=lambda r: int(r["code"]) if r["code"].isdigit() else 10**9)["code"]
+    return out
+
+
 def bucket_for(category: str, name: str) -> Optional[Bucket]:
     """Return the bucket a scheme belongs to, or None if it is out of scope."""
     if EXCLUDED_NAME_RE.search(name):

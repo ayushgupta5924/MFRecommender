@@ -318,8 +318,9 @@ function Health({ health }) {
         ))}
       </div>
       <div className="mutedText" style={{ marginTop: 10 }}>
-        Each fund is compared with every other fund in its category on 3- and 5-year returns, consistency
-        (rolling returns) and how far it fell in bad markets. Top quarter is in form, bottom quarter out of form.
+        Each fund is compared with every other fund in its category on returns, consistency (rolling returns),
+        how far it fell in bad markets, its record against its index, its expense ratio and whether its size suits
+        the category. Top quarter is in form, bottom quarter out of form.
       </div>
     </div>
   );
@@ -364,6 +365,39 @@ function Insights({ insights }) {
           <div className="insight__text">{i.text}</div>
         </div>
       ))}
+    </div>
+  );
+}
+
+// Look-through: the companies the money is really in, and funds that own the same stocks.
+function LookThrough({ stocks, overlaps }) {
+  if (!stocks?.length) return null;
+  return (
+    <div className="card">
+      <div className="card__title">Where your equity money really is</div>
+      <table className="metricTable">
+        <thead><tr><th>Company</th><th>Share of fund money</th><th>Held by</th></tr></thead>
+        <tbody>
+          {stocks.map((s) => (
+            <tr key={s.name}><td>{s.name}</td><td>{s.pct != null ? `${s.pct.toFixed(1)}%` : "—"}</td><td>{s.funds} fund{s.funds > 1 ? "s" : ""}</td></tr>
+          ))}
+        </tbody>
+      </table>
+      {overlaps?.length > 0 && (
+        <>
+          <div className="card__subtitle">Overlap between your funds</div>
+          {overlaps.slice(0, 5).map((o) => (
+            <div key={`${o.a}|${o.b}`} className="overlapRow">
+              <span>{o.a} &amp; {o.b}</span>
+              <b className={o.pct >= 40 ? "neg" : ""}>{Math.round(o.pct)}% the same</b>
+            </div>
+          ))}
+        </>
+      )}
+      <div className="mutedText" style={{ marginTop: 10 }}>
+        From each fund&apos;s latest monthly portfolio disclosure. Overlap is the share of two funds&apos; money in the
+        same stocks; above 40% they behave much like one fund.
+      </div>
     </div>
   );
 }
@@ -424,9 +458,26 @@ function HoldingCard({ h, onRemove }) {
                 <tr><td>3-year return (a year)</td><td>{pctF(m.cagr_3y)}</td><td>{pctF(c.cagr_3y)}</td></tr>
                 <tr><td>5-year return (a year)</td><td>{pctF(m.cagr_5y)}</td><td>{pctF(c.cagr_5y)}</td></tr>
                 <tr><td>Worst fall</td><td>{pctF(m.max_drawdown, 0)}</td><td>{pctF(c.max_drawdown, 0)}</td></tr>
+                {m.ter != null && (
+                  <tr><td>Expense ratio (Direct)</td><td>{m.ter.toFixed(2)}%</td><td>{c.ter != null ? `${c.ter.toFixed(2)}%` : "—"}</td></tr>
+                )}
               </tbody>
             </table>
           )}
+          {r.metrics && (
+            <div className="holdingFacts">
+              {m.aum_cr != null && <span>Fund size ₹{Math.round(m.aum_cr).toLocaleString("en-IN")} cr</span>}
+              {r.benchmark && m.beat_rate != null && (
+                <span>Beat the {r.benchmark} in {pctF(m.beat_rate, 0)} of 3-yr periods
+                  {m.down_capture != null && `, took ${pctF(m.down_capture, 0)} of its falls`}</span>
+              )}
+              {m.stocks > 0 && <span>{m.stocks} stocks{m.top10_pct != null && `, top 10 = ${Math.round(m.top10_pct)}%`}</span>}
+              {m.managers?.length > 0 && (
+                <span>Managed by {m.managers.join(", ")}{m.manager_changed && ` (new since ${fmtDate(m.manager_since)})`}</span>
+              )}
+            </div>
+          )}
+          {r.size_note && <div className="holding__note">⚠️ {r.size_note}</div>}
           {h.plan === "Regular" && (
             <div className="holding__note">
               💸 Regular plan.{h.cost_gap != null && ` Its Direct plan returned about ${pctF(h.cost_gap)} more over the last year.`}{" "}
@@ -528,6 +579,7 @@ export default function ReviewScreen() {
             <Insights insights={data.insights} />
             <Health health={data.health} />
             <Allocation allocation={data.allocation} target={data.target} />
+            <LookThrough stocks={data.top_stocks} overlaps={data.overlaps} />
             <Tax tax={data.tax} />
 
             <div className="sectionHeading">Your funds</div>

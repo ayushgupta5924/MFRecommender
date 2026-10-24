@@ -120,6 +120,23 @@ class FundRecommendation(BaseModel):
     category_median_3y:   Optional[float] = None
     category_median_5y:   Optional[float] = None
     years_history:        Optional[float] = None
+
+    # Beyond past returns: costs, size, the index, the fund manager and the portfolio
+    expense_ratio:        Optional[float] = None    # % a year, Direct plan
+    category_median_expense_ratio: Optional[float] = None
+    aum_cr:               Optional[float] = None    # whole scheme, ₹ crore
+    size_note:            Optional[str] = None
+    benchmark:            Optional[str] = None
+    excess_return:        Optional[float] = None    # % a year above the benchmark index
+    beat_rate:            Optional[float] = None    # % of rolling 3-year periods it beat the index
+    down_capture:         Optional[float] = None    # % of the index's monthly falls it took
+    managers:             List[str] = []
+    manager_since:        Optional[str] = None      # newest manager's start, when we saw it happen
+    manager_changed:      Optional[bool] = None
+    stocks:               Optional[int] = None
+    top10_pct:            Optional[float] = None
+    cash_pct:             Optional[float] = None
+    portfolio_date:       Optional[str] = None
     lock_in_years:        int = 0
     lump_sum_amount:      float = 0             # this fund's share of the one-time amount
     alternatives:         List[FundAlternative] = []
@@ -166,4 +183,4 @@ class PortfolioRecommendation(BaseModel):
     warnings:              List[str] = []
     data_as_of:            Optional[str] = None
     generated_at:          Optional[str] = None
-    methodology_version:   str = "2.0"
+    methodology_version:   str = "3.0"
