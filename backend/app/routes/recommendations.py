@@ -1,10 +1,14 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.orm import Session
+from app.db import get_db
+from app.db.tables import User
 from app.models.user import UserProfile, FundRecommendation, PortfolioRecommendation
+from app.services import advice_log
 from app.services.catalog import BUCKETS
 from app.services.recommendation_engine import RecommendationEngine
-from typing import List
+from typing import List, Optional
 
-from app.services.auth import accounts_enabled
+from app.services.auth import accounts_enabled, optional_user
 import logging
 
 logger = logging.getLogger(__name__)
@@ -12,29 +16,34 @@ router = APIRouter()
 engine = RecommendationEngine()
 
 
-def _build(profile: UserProfile) -> PortfolioRecommendation:
+def _build(profile: UserProfile, db: Session, user: Optional[User]) -> PortfolioRecommendation:
     try:
-        return engine.get_portfolio(profile)
+        result = engine.get_portfolio(profile)
     except ValueError as e:
         raise HTTPException(status_code=422, detail=str(e))
     except Exception:
         logger.exception("Failed to build portfolio")
         raise HTTPException(status_code=500, detail="Could not build a portfolio right now. Please try again.")
+    # Kept for SEBI's record-keeping, including for visitors who haven't signed up (stored without identity).
+    advice_log.safely(advice_log.record_plan, db, user, profile.model_dump(mode="json", exclude_none=True),
+                      result.model_dump(mode="json"))
+    return result
 
 
 @router.post("/portfolio", response_model=PortfolioRecommendation)
-def get_portfolio(profile: UserProfile):
+def get_portfolio(profile: UserProfile, db: Session = Depends(get_db), user: Optional[User] = Depends(optional_user)):
     """Named portfolio with fund picks, projections and the evidence behind each pick."""
     logger.info("portfolio: life_stage=%s goal=%s risk=%s score=%s horizon=%s",
                 profile.life_stage.value, profile.goal.value, profile.risk_tolerance.value,
                 profile.risk_score, profile.get_horizon())
-    return _build(profile)
+    return _build(profile, db, user)
 
 
 @router.post("/recommend", response_model=List[FundRecommendation])
-def get_recommendations(profile: UserProfile):
+def get_recommendations(profile: UserProfile, db: Session = Depends(get_db),
+                        user: Optional[User] = Depends(optional_user)):
     """Backward-compatible endpoint — returns flat fund list."""
-    funds = _build(profile).funds
+    funds = _build(profile, db, user).funds
     if not funds:
         raise HTTPException(status_code=404, detail="No suitable funds found")
     return funds

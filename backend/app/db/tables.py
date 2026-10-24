@@ -74,3 +74,27 @@ class SavedPlan(Base):
     result: Mapped[dict] = mapped_column(JSON)       # the plan returned at the time
     notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow, index=True)
+
+
+class AdviceRecord(Base):
+    """Every plan and portfolio review we show, kept for the SEBI retention period.
+
+    SEBI requires investment advisers to keep records of risk profiling, suitability
+    and the advice given, including interactions with prospective clients before
+    onboarding. Records outlive account deletion until retain_until; the client's name
+    and email are copied in so they stay identifiable after the account is gone.
+    Plans for visitors who aren't logged in are kept without any identity.
+    """
+    __tablename__ = "advice_records"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[Optional[int]] = mapped_column(Integer, nullable=True, index=True)   # no FK: survives deletion
+    client_name: Mapped[Optional[str]] = mapped_column(String(120), nullable=True)
+    client_email: Mapped[Optional[str]] = mapped_column(String(254), nullable=True, index=True)
+    kind: Mapped[str] = mapped_column(String(10))                 # "plan" | "review"
+    inputs: Mapped[dict] = mapped_column(JSON)
+    advice: Mapped[dict] = mapped_column(JSON)
+    fingerprint: Mapped[str] = mapped_column(String(64))
+    methodology_version: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
+    data_as_of: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow, index=True)
+    retain_until: Mapped[datetime] = mapped_column(DateTime, index=True)

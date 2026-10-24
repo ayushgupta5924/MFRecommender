@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 
 from app.db import get_db
 from app.db.tables import Portfolio, SavedPlan, User, utcnow
+from app.services import advice_log
 from app.services import holdings as hold
 from app.services import nav as navs
 from app.services.auth import current_user
@@ -40,6 +41,7 @@ def _review(db: Session, user: User, p: Portfolio) -> dict:
     result = reviewer.review(p.holdings, _target(db, user))
     result["statement"] = {"from": p.statement_from, "to": p.statement_to, "type": p.statement_type,
                            "updated_at": p.updated_at.isoformat()}
+    advice_log.safely(advice_log.record_review, db, user, p.holdings, result)
     return result
 
 

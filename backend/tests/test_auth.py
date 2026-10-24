@@ -137,3 +137,16 @@ def test_saved_plans_and_account_deletion():
 
 def test_api_responses_are_not_cacheable():
     assert TestClient(app).get("/api/health").headers["cache-control"] == "no-store"
+
+
+def test_signup_sends_the_investor_charter(monkeypatch):
+    welcomed = []
+    monkeypatch.setattr(auth_routes, "send_welcome", lambda to, name: welcomed.append((to, name)))
+    client = TestClient(app)
+    signup(client, "charter@example.com", "Charter Reader")
+    assert welcomed == [("charter@example.com", "Charter Reader")]
+    client.post("/api/auth/logout")
+    client.post("/api/auth/login/start", json={"email": "charter@example.com"})
+    client.post("/api/auth/verify", json={"email": "charter@example.com", "code": sent["charter@example.com"],
+                                          "purpose": "login"})
+    assert len(welcomed) == 1          # only at sign-up, not every login

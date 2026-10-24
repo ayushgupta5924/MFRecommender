@@ -313,7 +313,7 @@ export default function InputScreen() {
         {step === 3 && (
           <div>
             <div className="stepTitle">Your finances</div>
-            <div className="stepSubtitle">This tells us how much risk you can afford, and whether this plan fits your budget. Nothing is stored.</div>
+            <div className="stepSubtitle">This tells us how much risk you can afford, and whether this plan fits your budget. As SEBI requires, your answers and the plan we suggest are kept as a record of our advice (without your name unless you are logged in).</div>
 
             <div className="card">
               <NumberField id="income" label="Monthly take-home income" value={income} onChange={setIncome} placeholder="e.g. 80000"

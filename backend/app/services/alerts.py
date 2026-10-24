@@ -18,13 +18,12 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.db.tables import Portfolio, SavedPlan, User
+from app.services.email import BRAND, SITE_URL
 from app.services.review import STATUSES, Reviewer, _fmt
 
 logger = logging.getLogger(__name__)
 
 MIN_DAYS_BETWEEN = 25
-SITE_URL = os.getenv("SITE_URL", "https://mf-recommender.vercel.app").rstrip("/")
-BRAND = os.getenv("BRAND_NAME", "MF Advisor")
 RANK = ["in_form", "on_track", "off_track", "out_of_form"]
 COLORS = {"in_form": ("#e8f5e9", "#2e7d32"), "on_track": ("#e3f2fd", "#1565c0"),
           "off_track": ("#fff3e0", "#e65100"), "out_of_form": ("#ffebee", "#c62828")}
