@@ -59,7 +59,8 @@ export default function AccountScreen() {
   };
 
   const onDelete = async () => {
-    if (!window.confirm("Permanently delete your account, saved plans and imported portfolio? This can't be undone.")) return;
+    if (!window.confirm("Permanently delete your account, saved plans and imported portfolio? This can't be undone.\n\n"
+      + "As SEBI requires, a record of the advice we gave you is kept for 5 years and then deleted.")) return;
     try {
       await deleteAccount();
       setUser(null);
@@ -114,7 +115,10 @@ export default function AccountScreen() {
         ))}
 
         <div className="dangerZone">
-          <div className="mutedText">Deleting your account removes your saved plans and imported portfolio for good.</div>
+          <div className="mutedText">
+            Deleting your account removes your saved plans and imported portfolio for good. As SEBI requires, a record
+            of the advice we gave you is kept for 5 years and then deleted.
+          </div>
           <button className="btnDanger" onClick={onDelete}>Delete my account</button>
         </div>
       </div>

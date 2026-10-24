@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom";
 import { COMPLIANCE, SEBI_LINKS } from "../constants/compliance";
 import "../styles/Footer.css";
 
@@ -22,6 +23,9 @@ export default function Footer() {
           Grievances: <a href={`mailto:${c.grievanceEmail}`}>{c.grievanceEmail}</a>. If unresolved, lodge a complaint on{" "}
           <a href={SEBI_LINKS.scores} target="_blank" rel="noopener noreferrer">SEBI SCORES</a> or the{" "}
           <a href={SEBI_LINKS.odr} target="_blank" rel="noopener noreferrer">Smart ODR portal</a>. {c.sebiOffice}.
+        </div>
+        <div className="footer__line">
+          <Link to="/investor-charter">Investor Charter</Link>
         </div>
         <div className="footer__line footer__muted">
           Investments in securities market are subject to market risks. Read all the related documents carefully before investing.

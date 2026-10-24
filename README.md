@@ -167,6 +167,12 @@ From a CAS we keep only fund-level data (scheme, units, cost, transactions). The
 phone and address on the statement, and the PDF itself, are never stored. Login codes and session tokens are
 stored only as HMACs. Users can delete their portfolio or their whole account from the app.
 
+Every plan and portfolio review shown is kept in `advice_records` (inputs, risk profile and the advice itself)
+for `ADVICE_RETENTION_YEARS` (default 5), as SEBI requires advisers to keep records of advice, including for
+prospective clients before onboarding. Visitors' plans are stored without identity; clients' records carry their
+name and email and are kept even after the account is deleted, then purged automatically. The Investor Charter
+(SEBI circular 2025/80) is at `/investor-charter` and is emailed at sign-up.
+
 ## Limitations
 
 - Rankings use past NAV performance only. Expense ratio, AUM, portfolio holdings and fund manager changes are not

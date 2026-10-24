@@ -158,8 +158,8 @@ export default function AuthScreen({ mode }) {
           </div>
         )}
         <div className="mutedText authPrivacy">
-          We use your email only to log you in and to send updates you ask for. You can delete your account and
-          everything in it at any time.
+          We use your email only to log you in and to send updates you ask for. You can delete your account at any
+          time. Before you rely on our advice, please read the <Link to="/investor-charter">Investor Charter</Link>.
         </div>
       </div>
     </div>

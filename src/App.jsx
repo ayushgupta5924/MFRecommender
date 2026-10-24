@@ -6,6 +6,7 @@ import AuthScreen from "./components/AuthScreen";
 import Footer from "./components/Footer";
 import InfoScreen from "./components/InfoScreen";
 import InputScreen from "./components/InputScreen";
+import InvestorCharterScreen from "./components/InvestorCharterScreen";
 import ResultsScreen from "./components/ResultsScreen";
 import ReviewScreen from "./components/ReviewScreen";
 
@@ -27,6 +28,7 @@ export default function App() {
           <Route path="/plan/results" element={<ResultsScreen />} />
           <Route path="/login" element={<AuthScreen mode="login" key="login" />} />
           <Route path="/signup" element={<AuthScreen mode="signup" key="signup" />} />
+          <Route path="/investor-charter" element={<InvestorCharterScreen />} />
           <Route path="/review" element={<RequireAuth><ReviewScreen /></RequireAuth>} />
           <Route path="/account" element={<RequireAuth><AccountScreen /></RequireAuth>} />
           <Route path="*" element={<Navigate to="/" replace />} />

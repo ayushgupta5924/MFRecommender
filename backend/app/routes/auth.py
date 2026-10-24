@@ -9,8 +9,8 @@ from sqlalchemy.orm import Session
 
 from app.db import get_db
 from app.db.tables import AuthSession, OtpCode, Portfolio, SavedPlan, User
-from app.services import auth
-from app.services.email import EmailNotConfigured, send_otp
+from app.services import advice_log, auth
+from app.services.email import EmailNotConfigured, send_otp, send_welcome
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -86,6 +86,10 @@ def verify(body: Verify, response: Response, db: Session = Depends(get_db)):
             user = User(email=email, full_name=otp.full_name or email.split("@")[0])
             db.add(user)
             db.commit()
+            try:
+                send_welcome(user.email, user.full_name)
+            except Exception:   # the account works either way; the charter is also linked on the site
+                logger.exception("Welcome email failed for user %s", user.id)
     elif user is None:
         raise HTTPException(404, "No account uses this email. Create one instead.")
     token = auth.create_session(db, user)
@@ -109,7 +113,11 @@ def logout(response: Response, db: Session = Depends(get_db),
 
 @router.delete("/account")
 def delete_account(response: Response, user: User = Depends(auth.current_user), db: Session = Depends(get_db)):
-    """Permanently delete the account and everything stored for it."""
+    """Delete the account, saved plans, imported portfolio, sessions and login codes.
+
+    Records of advice already given (advice_records) are deliberately kept until their
+    retention date, because SEBI requires advisers to keep them; they're purged after that.
+    """
     for table in (SavedPlan, Portfolio, AuthSession):
         db.execute(delete(table).where(table.user_id == user.id))
     db.execute(delete(OtpCode).where(OtpCode.email == user.email))
@@ -117,4 +125,4 @@ def delete_account(response: Response, user: User = Depends(auth.current_user), 
     db.commit()
     settings = auth.cookie_settings()
     response.delete_cookie(settings["key"], path="/", secure=settings["secure"], httponly=True, samesite="lax")
-    return {"deleted": True}
+    return {"deleted": True, "advice_records_kept_years": advice_log.RETENTION_YEARS}
