@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { getPortfolio } from "../api";
 import {
   CAPACITY_QUESTIONS, INSURANCE_QUESTIONS, WILLINGNESS_QUESTIONS,
@@ -6,6 +7,8 @@ import {
 } from "../constants/riskQuestions";
 import { fmt, requiredSip, sipFutureValue } from "../utils/format";
 import { profileChecks } from "../utils/profileChecks";
+import { LAST_PLAN_KEY, save, usePersistentState } from "../utils/storage";
+import AppBar from "./AppBar";
 import "../styles/InputScreen.css";
 import "../styles/shared.css";
 
@@ -95,24 +98,28 @@ function ReviewSection({ title, step, onEdit, rows }) {
   );
 }
 
-export default function InputScreen({ onBack, onResults }) {
-  const [step, setStep]             = useState(1);
-  const [age, setAge]               = useState("");
-  const [lifeStage, setLifeStage]   = useState("");
-  const [goal, setGoal]             = useState("");
-  const [years, setYears]           = useState("");
-  const [childAge, setChildAge]     = useState("");
-  const [retireAge, setRetireAge]   = useState("60");
-  const [fixedDeadline, setFixed]   = useState(null);
-  const [income, setIncome]         = useState("");
-  const [expenses, setExpenses]     = useState("");
-  const [emi, setEmi]               = useState("");
-  const [answers, setAnswers]       = useState({});
-  const [insurance, setInsurance]   = useState({});
-  const [budget, setBudget]         = useState("");
-  const [targetAmount, setTarget]   = useState("");
-  const [targetToday, setTargetToday] = useState(true);
-  const [taxRegime, setTaxRegime]   = useState("old");
+// Answers are kept in this browser so a refresh doesn't lose them.
+const K = (name) => `mfa:plan:${name}`;
+
+export default function InputScreen() {
+  const navigate = useNavigate();
+  const [step, setStep]             = usePersistentState(K("step"), 1);
+  const [age, setAge]               = usePersistentState(K("age"), "");
+  const [lifeStage, setLifeStage]   = usePersistentState(K("lifeStage"), "");
+  const [goal, setGoal]             = usePersistentState(K("goal"), "");
+  const [years, setYears]           = usePersistentState(K("years"), "");
+  const [childAge, setChildAge]     = usePersistentState(K("childAge"), "");
+  const [retireAge, setRetireAge]   = usePersistentState(K("retireAge"), "60");
+  const [fixedDeadline, setFixed]   = usePersistentState(K("fixedDeadline"), null);
+  const [income, setIncome]         = usePersistentState(K("income"), "");
+  const [expenses, setExpenses]     = usePersistentState(K("expenses"), "");
+  const [emi, setEmi]               = usePersistentState(K("emi"), "");
+  const [answers, setAnswers]       = usePersistentState(K("answers"), {});
+  const [insurance, setInsurance]   = usePersistentState(K("insurance"), {});
+  const [budget, setBudget]         = usePersistentState(K("budget"), "");
+  const [targetAmount, setTarget]   = usePersistentState(K("target"), "");
+  const [targetToday, setTargetToday] = usePersistentState(K("targetToday"), true);
+  const [taxRegime, setTaxRegime]   = usePersistentState(K("taxRegime"), "old");
   const [consent, setConsent]       = useState(false);
   const [loading, setLoading]       = useState(false);
   const [error, setError]           = useState("");
@@ -190,7 +197,8 @@ export default function InputScreen({ onBack, onResults }) {
         has_term_insurance:    insurance.term,
       };
       const data = await getPortfolio(payload);
-      onResults(data);
+      save(LAST_PLAN_KEY, { payload, results: data, savedId: null });
+      navigate("/plan/results");
     } catch (e) {
       setError(e.message);
     } finally {
@@ -206,11 +214,8 @@ export default function InputScreen({ onBack, onResults }) {
 
   return (
     <div className="page">
-      <div className="appBar">
-        <button className="backBtn" aria-label="Back" onClick={step === 1 ? onBack : () => setStep(s => s - 1)}>←</button>
-        <span className="appBar__title">Your Investor Profile</span>
-        <span className="stepBadge">Step {step} of {STEPS}</span>
-      </div>
+      <AppBar title="Your Investor Profile" onBack={step === 1 ? () => navigate("/") : () => setStep(s => s - 1)}
+        extra={<span className="stepBadge">Step {step} of {STEPS}</span>} />
 
       <div className="progressBar">
         <div className="progressBar__fill" style={{ width: `${(step / STEPS) * 100}%` }} />

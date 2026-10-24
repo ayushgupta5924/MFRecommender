@@ -19,12 +19,14 @@ import requests
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from app.services.amfi import NAVALL_URL, parse_navall, reference_nav_date  # noqa: E402
+from app.services.amfi import NAVALL_URL, build_scheme_map, parse_navall, reference_nav_date  # noqa: E402
 from app.services.catalog import BUCKETS  # noqa: E402
 from app.services.ranking import build_rankings, mfapi_points  # noqa: E402
 
 MFAPI_URL = "https://api.mfapi.in/mf/{code}"
 OUTPUT = Path(__file__).resolve().parents[1] / "app" / "data" / "rankings.json"
+SCHEME_MAP_OUTPUT = OUTPUT.with_name("scheme_map.json")
+MIN_SCHEMES_IN_MAP = 3000
 MIN_FUNDS_PER_BUCKET = 5
 HEADERS = {"User-Agent": "mf-advisor-rankings/2.0"}
 
@@ -55,6 +57,31 @@ def fetch_history(code: str, cache_dir: Path = None):
     return code, payload
 
 
+def write_json(path: Path, data: dict) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_suffix(".tmp")
+    tmp.write_text(json.dumps(data, separators=(",", ":"), ensure_ascii=False), encoding="utf-8")
+    os.replace(tmp, path)
+
+
+def update_scheme_map(lines, path: Path) -> None:
+    """Rewrite the scheme map only when schemes changed, so the nightly commit stays small."""
+    schemes = build_scheme_map(lines)
+    if len(schemes) < MIN_SCHEMES_IN_MAP:
+        print(f"Only {len(schemes)} schemes in the map; keeping the existing file.", file=sys.stderr)
+        return
+    if path.exists():
+        try:
+            if json.loads(path.read_text(encoding="utf-8")).get("schemes") == schemes:
+                print("Scheme map unchanged.")
+                return
+        except ValueError:
+            pass
+    generated = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+    write_json(path, {"schema_version": 1, "generated_at": generated, "schemes": schemes})
+    print(f"Wrote {len(schemes)} schemes to {path}")
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--cache-dir", type=Path, help="Directory to cache downloads in (development only)")
@@ -72,6 +99,8 @@ def main() -> int:
             navall_cache.write_text(text, encoding="utf-8")
     else:
         text = get(NAVALL_URL).content.decode("utf-8", errors="replace")
+
+    update_scheme_map(text.splitlines(), args.output.with_name(SCHEME_MAP_OUTPUT.name))
 
     schemes = parse_navall(text.splitlines())
     if len(schemes) < 300:
@@ -98,10 +127,7 @@ def main() -> int:
         print(f"Too few ranked funds in: {', '.join(thin)}; refusing to overwrite.", file=sys.stderr)
         return 1
 
-    args.output.parent.mkdir(parents=True, exist_ok=True)
-    tmp = args.output.with_suffix(".tmp")
-    tmp.write_text(json.dumps(rankings, separators=(",", ":"), ensure_ascii=False), encoding="utf-8")
-    os.replace(tmp, args.output)
+    write_json(args.output, rankings)
     total = sum(len(b["funds"]) for b in rankings["buckets"].values())
     print(f"Wrote {total} ranked funds across {len(BUCKETS)} buckets to {args.output} "
           f"(risk-free {rankings['risk_free_rate']:.2%})")

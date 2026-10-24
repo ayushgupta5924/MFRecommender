@@ -1,0 +1,11 @@
+.accountCard__name { font-size: 20px; font-weight: 800; color: #111; margin-bottom: 2px; }
+.accountLink {
+  display: flex; justify-content: space-between; align-items: center; text-decoration: none;
+  color: #1565c0; font-weight: 700; font-size: 15px;
+}
+.accountLink__arrow { font-size: 18px; }
+.planRow { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 14px 18px; }
+.planRow__main { font: inherit; text-align: left; background: none; border: none; cursor: pointer; flex: 1; min-width: 0; padding: 0; }
+.planRow__name { font-size: 15px; font-weight: 700; color: #222; margin-bottom: 2px; }
+.planRow__main:hover .planRow__name { color: #1565c0; }
+.dangerZone { margin-top: 32px; padding-top: 16px; border-top: 1px solid #e5e5e5; }

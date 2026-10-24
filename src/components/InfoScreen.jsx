@@ -1,19 +1,26 @@
 import { useState } from "react";
+import { Link } from "react-router-dom";
 import { FACTORS, STRATEGIES } from "../constants/strategies";
 import "../styles/InfoScreen.css";
 import "../styles/shared.css";
+import AppBar from "./AppBar";
 import Disclaimer from "./Disclaimer";
 
-export default function InfoScreen({ onNext }) {
+export default function InfoScreen() {
   const [expanded, setExpanded] = useState(false);
 
   return (
     <div className="page">
+      <AppBar title="" />
       <div className="infoHero">
         <div className="infoHero__icon">💼</div>
         <div className="infoHero__title">MF Advisor</div>
         <div className="infoHero__subtitle">A mutual fund plan built from your goals, risk profile and real fund data</div>
-        <button className="btnWhite" onClick={onNext}>🚀 Get Started →</button>
+        <div className="infoHero__actions">
+          <Link className="btnWhite" to="/plan">🚀 Build my plan →</Link>
+          <Link className="btnGhost" to="/review">📊 Review my portfolio</Link>
+        </div>
+        <div className="infoHero__hint">Already invest? Upload your CAMS / KFintech statement and see how each fund is doing.</div>
       </div>
 
       <div className="body">

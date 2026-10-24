@@ -1,7 +1,13 @@
+import { useState } from "react";
+import { Link, Navigate, useNavigate } from "react-router-dom";
+import { savePlan } from "../api";
+import { useAuth } from "../auth";
 import "../styles/FundCard.css";
 import "../styles/ResultsScreen.css";
 import "../styles/shared.css";
 import { fmt, fmtDate } from "../utils/format";
+import { LAST_PLAN_KEY, load, save } from "../utils/storage";
+import AppBar from "./AppBar";
 import Disclaimer from "./Disclaimer";
 import FundCard from "./FundCard";
 
@@ -13,7 +19,49 @@ const SCENARIOS = [
   ["optimistic", "If markets do well"],
 ];
 
-export default function ResultsScreen({ onBack, results }) {
+function SavePlan({ last, setLast }) {
+  const { user } = useAuth();
+  const [state, setState] = useState({ saving: false, error: "" });
+
+  if (user === null) {
+    return (
+      <Link className="btnOutline" to={`/login?next=${encodeURIComponent("/plan/results")}`}>
+        🔐 Log in to save this plan
+      </Link>
+    );
+  }
+  if (last.savedId) {
+    return <div className="successText">✅ Saved to your account. <Link to="/account">See your plans</Link></div>;
+  }
+  const onSave = async () => {
+    setState({ saving: true, error: "" });
+    try {
+      const saved = await savePlan(last.payload, last.results);
+      const next = { ...last, savedId: saved.id };
+      save(LAST_PLAN_KEY, next);
+      setLast(next);
+    } catch (e) {
+      setState({ saving: false, error: e.message });
+      return;
+    }
+    setState({ saving: false, error: "" });
+  };
+  return (
+    <>
+      <button className="btnOutline" onClick={onSave} disabled={state.saving || !user}>
+        {state.saving ? "Saving…" : "💾 Save to my account"}
+      </button>
+      {state.error && <div className="errorText">{state.error}</div>}
+    </>
+  );
+}
+
+export default function ResultsScreen() {
+  const navigate = useNavigate();
+  const [last, setLast] = useState(() => load(LAST_PLAN_KEY, null));
+  if (!last?.results) return <Navigate to="/plan" replace />;
+  const results = last.results;
+  const onBack = () => navigate("/plan");
   const funds = results?.funds || [];
   const mix = results?.asset_mix || {};
   const projections = results?.projections || {};
@@ -25,10 +73,7 @@ export default function ResultsScreen({ onBack, results }) {
 
   return (
     <div className="page">
-      <div className="appBar">
-        <button className="backBtn" aria-label="Back" onClick={onBack}>←</button>
-        <span className="appBar__title">Your Portfolio</span>
-      </div>
+      <AppBar title="Your Plan" onBack={onBack} />
 
       <div className="portfolioHero">
         <div className="portfolioHero__name">{results.portfolio_name}</div>
@@ -141,7 +186,11 @@ export default function ResultsScreen({ onBack, results }) {
 
         <Disclaimer />
 
-        <button className="btnBlue" onClick={onBack}>← Adjust Profile</button>
+        <div className="resultsActions">
+          <SavePlan last={last} setLast={setLast} />
+          <Link className="btnOutline" to="/review">📊 Review the funds you already own</Link>
+          <button className="btnBlue" onClick={onBack}>← Adjust Profile</button>
+        </div>
       </div>
     </div>
   );
