@@ -20,7 +20,7 @@ from fastapi import Cookie, Depends, HTTPException, Request
 from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session
 
-from app.db import get_db
+from app.db import DATABASE_URL, get_db
 from app.db.tables import AuthSession, OtpCode, User, utcnow
 
 logger = logging.getLogger(__name__)
@@ -40,6 +40,18 @@ if not _SECRET:
     # Fine locally; in production codes would stop verifying after every restart.
     logger.warning("AUTH_SECRET is not set; using a random one for this process.")
     _SECRET = secrets.token_hex(32)
+
+
+def accounts_enabled() -> bool:
+    """Accounts need a lasting database, a fixed signing secret and a way to send emails.
+
+    Until all three are configured in production, the site hides login and review
+    instead of offering features that would fail or lose data on the next deploy.
+    """
+    if os.getenv("EMAIL_DEV_MODE") == "1":
+        return True
+    has_email = bool(os.getenv("RESEND_API_KEY") and os.getenv("EMAIL_FROM"))
+    return has_email and bool(os.getenv("AUTH_SECRET")) and not DATABASE_URL.startswith("sqlite")
 
 
 def auth_error(status: int, detail: str) -> HTTPException:

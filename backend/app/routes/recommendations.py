@@ -3,6 +3,8 @@ from app.models.user import UserProfile, FundRecommendation, PortfolioRecommenda
 from app.services.catalog import BUCKETS
 from app.services.recommendation_engine import RecommendationEngine
 from typing import List
+
+from app.services.auth import accounts_enabled
 import logging
 
 logger = logging.getLogger(__name__)
@@ -46,6 +48,7 @@ def health():
         "data_as_of": data.get("nav_date"),
         "generated_at": data.get("generated_at"),
         "funds_ranked": sum(len(b["funds"]) for b in data["buckets"].values()),
+        "accounts_enabled": accounts_enabled(),
     }
 
 

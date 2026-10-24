@@ -42,6 +42,8 @@ def _user_out(user: User) -> UserOut:
 
 
 def _send(db: Session, request: Request, email: str, purpose: str, full_name: Optional[str] = None) -> dict:
+    if not auth.accounts_enabled():
+        raise HTTPException(503, "Accounts aren't available yet. Please try again later.")
     code = auth.issue_code(db, email, purpose, auth.client_ip(request), full_name)
     try:
         send_otp(email, code, purpose, auth.OTP_MINUTES)

@@ -9,7 +9,7 @@ os.environ["DATABASE_URL"] = f"sqlite:///{_db.as_posix()}"
 os.environ["AUTH_SECRET"] = "test-secret"
 os.environ["COOKIE_SECURE"] = "0"
 os.environ.pop("RESEND_API_KEY", None)
-os.environ.pop("EMAIL_DEV_MODE", None)
+os.environ["EMAIL_DEV_MODE"] = "1"   # accounts on, with SQLite; the sender itself is patched in tests
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 

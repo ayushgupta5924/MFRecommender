@@ -7,7 +7,7 @@ function initials(name) {
 }
 
 export default function AppBar({ title, onBack, extra }) {
-  const { user } = useAuth();
+  const { user, accountsEnabled } = useAuth();
   return (
     <div className="appBar">
       {onBack
@@ -16,13 +16,13 @@ export default function AppBar({ title, onBack, extra }) {
       <span className="appBar__title">{title}</span>
       {extra}
       <nav className="appBar__nav">
-        <NavLink to="/review" className="appBar__link">Review</NavLink>
+        {accountsEnabled && <NavLink to="/review" className="appBar__link">Review</NavLink>}
         {user && (
           <NavLink to="/account" className="appBar__avatar" title={user.full_name} aria-label="Your account">
             {initials(user.full_name)}
           </NavLink>
         )}
-        {user === null && <NavLink to="/login" className="appBar__link appBar__link--solid">Log in</NavLink>}
+        {accountsEnabled && user === null && <NavLink to="/login" className="appBar__link appBar__link--solid">Log in</NavLink>}
       </nav>
     </div>
   );

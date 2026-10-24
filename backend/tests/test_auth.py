@@ -96,12 +96,17 @@ def test_new_code_replaces_the_old_one():
                                                      "purpose": "login"}).status_code == 400
 
 
-def test_email_not_configured_is_a_clear_error(monkeypatch):
-    monkeypatch.undo()   # use the real sender, which has no API key in tests
-    auth._ip_hits.clear()
+def test_accounts_stay_off_until_production_settings_exist(monkeypatch):
     client = TestClient(app)
+    assert client.get("/api/health").json()["accounts_enabled"] is True
+    monkeypatch.delenv("EMAIL_DEV_MODE")
+    assert client.get("/api/health").json()["accounts_enabled"] is False
     r = client.post("/api/auth/signup/start", json={"full_name": "No Mail", "email": "nomail@example.com"})
     assert r.status_code == 503
+    # Email alone isn't enough while the database is still a local SQLite file.
+    monkeypatch.setenv("RESEND_API_KEY", "x")
+    monkeypatch.setenv("EMAIL_FROM", "a@b.in")
+    assert client.get("/api/health").json()["accounts_enabled"] is False
 
 
 def test_saved_plans_and_account_deletion():
