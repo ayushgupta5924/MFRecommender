@@ -14,6 +14,9 @@ from app.services.metrics import cagr, to_series
 from app.services.ranking import mfapi_points
 
 MFAPI_URL = "https://api.mfapi.in/mf/{code}"
+MFAPI_LATEST_URL = "https://api.mfapi.in/mf/{code}/latest"
+TIMEOUT = 30            # long-running funds have 15+ years of daily NAVs to download
+ATTEMPTS = 2
 CACHE_SECONDS = 6 * 3600
 HEADERS = {"User-Agent": "mf-advisor-review/1.0"}
 
@@ -28,15 +31,31 @@ def _history(code: str) -> List[Tuple[str, float]]:
         hit = _cache.get(code)
         if hit and now - hit[0] < CACHE_SECONDS:
             return hit[1]
-    try:
-        resp = requests.get(MFAPI_URL.format(code=code), timeout=15, headers=HEADERS)
-        points = sorted(mfapi_points(resp.json())) if resp.status_code == 200 else []
-    except (requests.RequestException, ValueError):
-        points = []
+    points = _fetch(MFAPI_URL.format(code=code))
     with _lock:
         # Don't cache failures for long, so a blip doesn't stick for hours.
         _cache[code] = (now if points else now - CACHE_SECONDS + 300, points)
     return points
+
+
+def _fetch(url: str) -> List[Tuple[str, float]]:
+    for _ in range(ATTEMPTS):
+        try:
+            resp = requests.get(url, timeout=TIMEOUT, headers=HEADERS)
+            if resp.status_code == 200:
+                return sorted(mfapi_points(resp.json()))
+        except (requests.RequestException, ValueError):
+            pass
+    return []
+
+
+def latest_nav(code: str) -> Optional[Tuple[float, str]]:
+    """Today's NAV without downloading the whole history (cached history first, if we have it)."""
+    with _lock:
+        hit = _cache.get(code)
+    if hit and hit[1] and time.time() - hit[0] < CACHE_SECONDS:
+        return latest(hit[1])
+    return latest(_fetch(MFAPI_LATEST_URL.format(code=code))) or latest(_history(code))
 
 
 def histories(codes: Iterable[str]) -> Dict[str, List[Tuple[str, float]]]:

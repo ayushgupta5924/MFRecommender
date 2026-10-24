@@ -90,6 +90,7 @@ def test_unsubscribe_link_and_account_switch(investor):
 
 def test_scheduled_endpoint_needs_the_token(monkeypatch):
     monkeypatch.setattr(navs, "histories", histories())
+    monkeypatch.setattr(navs, "latest_nav", lambda code: (100.0, "2026-10-23"))
     client = TestClient(app)
     assert client.post("/api/internal/alerts/run").status_code == 404
     monkeypatch.setenv("ALERTS_TOKEN", "s3cret")

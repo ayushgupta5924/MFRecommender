@@ -210,17 +210,34 @@ def size_fit(aum_cr: Optional[float], bucket: str, sleeve: str) -> Optional[floa
     return 1.0
 
 
+SPREAD_THIN_STOCKS = 150
+
+
+def _indian(n: float) -> str:
+    """1234567 -> '12,34,567' (Indian digit grouping)."""
+    s = str(int(round(n)))
+    if len(s) <= 3:
+        return s
+    head, tail = s[:-3], s[-3:]
+    groups = []
+    while len(head) > 2:
+        groups.insert(0, head[-2:])
+        head = head[:-2]
+    return ",".join([head] + groups + [tail]) if head else ",".join(groups + [tail])
+
+
 def size_note(f: dict, bucket: str, sleeve: str, label: str) -> Optional[str]:
     """One plain sentence on the fund's size when it matters, else None."""
     aum = f.get("aum_cr")
     if not aum:
         return None
-    amount = f"₹{aum:,.0f} crore"
+    amount = f"₹{_indian(aum)} crore"
     cap = CAPACITY_CR.get(bucket)
     if cap and aum > cap:
-        spread = f" across {f['stocks']} stocks" if f.get("stocks") else ""
-        return (f"At {amount} it is large for a {label} fund: money spread{spread} means one company doing well "
-                f"moves its NAV little, and buying or selling smaller stocks is harder.")
+        spread = (f" It holds {f['stocks']} stocks, so one company doing well moves its NAV little."
+                  if (f.get("stocks") or 0) >= SPREAD_THIN_STOCKS else "")
+        return (f"At {amount} it is large for a {label} fund: big funds find it harder to buy or sell smaller "
+                f"companies without moving their prices.{spread}")
     if aum < MIN_AUM_CR[sleeve]:
         return f"At {amount} it is small, so a few large investors leaving could force it to sell."
     return None

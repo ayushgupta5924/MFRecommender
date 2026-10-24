@@ -73,6 +73,9 @@ def test_size_fit_penalises_oversized_and_tiny_funds():
     assert ff.size_fit(None, "small_cap", "equity") is None
     note = ff.size_note({"aum_cr": 80_000, "stocks": 256}, "small_cap", "equity", "small cap")
     assert "₹80,000 crore" in note and "256 stocks" in note
+    assert ff._indian(145070.4) == "1,45,070" and ff._indian(999) == "999" and ff._indian(12345678) == "1,23,45,678"
+    concentrated = ff.size_note({"aum_cr": 145_070, "stocks": 60}, "flexi_cap", "equity", "flexi cap")
+    assert "₹1,45,070 crore" in concentrated and "stocks" not in concentrated
     assert ff.size_note({"aum_cr": 10_000}, "small_cap", "equity", "small cap") is None
 
 
