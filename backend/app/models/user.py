@@ -85,6 +85,7 @@ class FundAlternative(BaseModel):
     returns_3y:   Optional[float]
     returns_5y:   Optional[float]
     score:        float
+    info_url:     Optional[str] = None
 
 
 class FundRecommendation(BaseModel):
@@ -102,6 +103,7 @@ class FundRecommendation(BaseModel):
     reason:               str
     investment_url:       str                   # neutral: MF Central, the RTAs' platform for Direct plans
     isin:                 Optional[str] = None
+    info_url:             Optional[str] = None      # the fund's fact page (Zerodha Coin, by ISIN)
 
     # Evidence behind the pick
     amc:                  str = ""

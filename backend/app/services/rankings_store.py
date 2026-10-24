@@ -98,6 +98,18 @@ class SchemeMapStore(RankingsStore):
             self._indexed = data
         return self._isin_index.get(isin)
 
+    def isin(self, code: str) -> Optional[str]:
+        isins = self.schemes().get(code, {}).get("isins") or []
+        return isins[0] if isins else None
+
+    def fund_page_url(self, code: str) -> Optional[str]:
+        isin = self.isin(code)
+        return FUND_PAGE_URL.format(isin=isin) if isin else None
+
+
+# A neutral page with the fund's facts (NAV, expense ratio, holdings, fund manager), addressed by ISIN so the link
+# always lands on the right fund. Coin lists every fund house's Direct plans.
+FUND_PAGE_URL = "https://coin.zerodha.com/mf/fund/{isin}"
 
 store = RankingsStore()
 scheme_map = SchemeMapStore()

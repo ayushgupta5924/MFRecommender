@@ -35,7 +35,7 @@ export default function App() {
           <Route path="/complaints" element={<ComplaintsScreen />} />
           <Route path="/how-advice-works" element={<HowAdviceWorksScreen />} />
           <Route path="/privacy" element={<PrivacyScreen />} />
-          <Route path="/review" element={<RequireAuth><ReviewScreen /></RequireAuth>} />
+          <Route path="/review" element={<ReviewScreen />} />
           <Route path="/account" element={<RequireAuth><AccountScreen /></RequireAuth>} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

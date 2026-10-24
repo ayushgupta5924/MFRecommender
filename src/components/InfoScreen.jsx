@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { useAuth } from "../auth";
 import { FACTORS, STRATEGIES } from "../constants/strategies";
 import "../styles/InfoScreen.css";
 import "../styles/shared.css";
@@ -8,7 +7,6 @@ import AppBar from "./AppBar";
 import Disclaimer from "./Disclaimer";
 
 export default function InfoScreen() {
-  const { accountsEnabled } = useAuth();
   const [expanded, setExpanded] = useState(false);
 
   return (
@@ -20,11 +18,9 @@ export default function InfoScreen() {
         <div className="infoHero__subtitle">A mutual fund plan built from your goals, risk profile and real fund data</div>
         <div className="infoHero__actions">
           <Link className="btnWhite" to="/plan">🚀 Build my plan →</Link>
-          {accountsEnabled && <Link className="btnGhost" to="/review">📊 Review my portfolio</Link>}
+          <Link className="btnGhost" to="/review">📊 Review my portfolio</Link>
         </div>
-        {accountsEnabled && (
-          <div className="infoHero__hint">Already invest? Upload your CAMS / KFintech statement and see how each fund is doing.</div>
-        )}
+        <div className="infoHero__hint">Already invest? Upload your CAMS / KFintech statement and see how each fund is doing.</div>
       </div>
 
       <div className="body">

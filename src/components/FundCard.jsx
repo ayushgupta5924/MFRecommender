@@ -38,7 +38,12 @@ export default function FundCard({ fund }) {
           {fund.lock_in_years > 0 && <span className="fundCard__lockPill">🔒 {fund.lock_in_years}-yr lock-in</span>}
         </div>
         <div className="fundCard__name">{fund.scheme_name || "Unknown Fund"}</div>
-        <div className="fundCard__amc">{fund.amc} · Direct Plan · Growth</div>
+        <div className="fundCard__amc">
+          {fund.amc} · Direct Plan · Growth
+          {fund.info_url && (
+            <> · <a className="fundCard__infoLink" href={fund.info_url} target="_blank" rel="noopener noreferrer">Fund details ↗</a></>
+          )}
+        </div>
       </div>
 
       <div className="fundCard__body">
@@ -94,7 +99,9 @@ export default function FundCard({ fund }) {
             {showAlternatives && alternatives.map((a) => (
               <div key={a.scheme_code} className="alternatives__row">
                 <div>
-                  <div className="alternatives__name">{a.scheme_name}</div>
+                  <div className="alternatives__name">
+                    {a.info_url ? <a href={a.info_url} target="_blank" rel="noopener noreferrer">{a.scheme_name}</a> : a.scheme_name}
+                  </div>
                   <div className="alternatives__amc">{a.amc}</div>
                 </div>
                 <div className="alternatives__ret">
@@ -115,6 +122,7 @@ export default function FundCard({ fund }) {
           </div>
           <div className="fundCard__note">
             We earn nothing from where you invest. Read the scheme documents before investing.
+            {fund.info_url && <> &ldquo;Fund details&rdquo; opens the fund&apos;s page on Zerodha Coin, for information only.</>}
           </div>
         </div>
       </div>

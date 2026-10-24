@@ -22,13 +22,34 @@ export function save(key, value) {
   } catch { /* storage full or blocked: the app still works, it just won't remember */ }
 }
 
-// Removes questionnaire answers, the last plan and any half-finished login from this browser.
-export function clearPlanData() {
+// A guest's portfolio review, kept only for this browser tab (gone when the tab closes).
+export const GUEST_REVIEW_KEY = "mfa:guestReview";
+
+export function loadSession(key, fallback) {
   try {
-    Object.keys(window.localStorage)
-      .filter((k) => k.startsWith("mfa:"))
-      .forEach((k) => window.localStorage.removeItem(k));
-  } catch { /* storage blocked: nothing was saved anyway */ }
+    const raw = window.sessionStorage.getItem(key);
+    return raw == null ? fallback : JSON.parse(raw);
+  } catch {
+    return fallback;
+  }
+}
+
+export function saveSession(key, value) {
+  try {
+    if (value === undefined) window.sessionStorage.removeItem(key);
+    else window.sessionStorage.setItem(key, JSON.stringify(value));
+  } catch { /* storage full or blocked: the review still shows, it just won't survive a refresh */ }
+}
+
+// Removes questionnaire answers, the last plan, a guest review and any half-finished login from this browser.
+export function clearPlanData() {
+  for (const store of ["localStorage", "sessionStorage"]) {
+    try {
+      Object.keys(window[store])
+        .filter((k) => k.startsWith("mfa:"))
+        .forEach((k) => window[store].removeItem(k));
+    } catch { /* storage blocked: nothing was saved anyway */ }
+  }
 }
 
 // useState that is restored after a page refresh.

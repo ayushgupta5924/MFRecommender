@@ -16,7 +16,7 @@ export default function AppBar({ title, onBack, extra }) {
       <span className="appBar__title">{title}</span>
       {extra}
       <nav className="appBar__nav">
-        {accountsEnabled && <NavLink to="/review" className="appBar__link">Review</NavLink>}
+        <NavLink to="/review" className="appBar__link">Review</NavLink>
         {user && (
           <NavLink to="/account" className="appBar__avatar" title={user.full_name} aria-label="Your account">
             {initials(user.full_name)}

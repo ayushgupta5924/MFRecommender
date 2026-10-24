@@ -86,7 +86,7 @@ def record_plan(db: Session, user: Optional[User], profile: dict, result: dict) 
                  result.get("methodology_version"), result.get("data_as_of"))
 
 
-def record_review(db: Session, user: User, holdings: list, review: dict) -> bool:
+def record_review(db: Session, user: Optional[User], holdings: list, review: dict) -> bool:
     inputs = {"holdings": [{"code": h.get("code"), "name": h.get("name"), "units": h.get("units"),
                             "cost": h.get("cost"), "source": h.get("source")} for h in holdings]}
     advice = review_advice(review)

@@ -8,7 +8,7 @@ from app.models.user import (
 )
 from app.services import allocation as alloc
 from app.services.catalog import BUCKETS
-from app.services.rankings_store import RankingsStore, store as default_store
+from app.services.rankings_store import RankingsStore, scheme_map, store as default_store
 
 INFLATION = 0.06
 # Long-run return assumptions per sleeve are clamped to these bands so a hot or
@@ -211,12 +211,6 @@ class RecommendationEngine:
         )
 
     @staticmethod
-    def _isin(code: str) -> Optional[str]:
-        from app.services.rankings_store import scheme_map
-        isins = scheme_map.schemes().get(code, {}).get("isins") or []
-        return isins[0] if isins else None
-
-    @staticmethod
     def _plan_note(profile: UserProfile, score: float, label: str, horizon: int, fixed: bool) -> Optional[str]:
         """When a safety rule holds equity well below what the risk profile points to, say so up front,
         so an Aggressive label next to a debt-heavy plan doesn't look like a mistake."""
@@ -357,7 +351,8 @@ class RecommendationEngine:
             reason=self._reason(bucket, f, rank, rank_of, stats, scoring_profile, profile, horizon,
                                 self._seasoned_note(bucket_key, rank_of, data)),
             investment_url=INVEST_URL,
-            isin=self._isin(f["code"]),
+            isin=scheme_map.isin(f["code"]),
+            info_url=scheme_map.fund_page_url(f["code"]),
             amc=f["amc"],
             bucket=bucket_key,
             sebi_category=f.get("category", ""),
@@ -375,6 +370,7 @@ class RecommendationEngine:
             lock_in_years=bucket.lock_in_years,
             alternatives=[FundAlternative(
                 scheme_name=a["name"], scheme_code=a["code"], amc=a["amc"],
+                info_url=scheme_map.fund_page_url(a["code"]),
                 returns_3y=pct(a.get("cagr_3y")), returns_5y=pct(a.get("cagr_5y")),
                 score=a["scores"][scoring_profile]) for a in alternatives],
         )
