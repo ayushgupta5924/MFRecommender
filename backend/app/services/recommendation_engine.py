@@ -22,6 +22,8 @@ SCENARIO_SHIFT = {
 }
 # Prefer funds that have been through at least one full market cycle.
 PREFERRED_YEARS = {"equity": 5, "hybrid": 5, "debt": 3}
+# Rough equity share inside each hybrid category, used only to explain the total.
+HYBRID_EQUITY_SHARE = {"multi_asset": 0.5, "balanced_advantage": 0.5, "conservative_hybrid": 0.2}
 RISK_TOLERANCE_SCORE = {RiskTolerance.LOW: 20, RiskTolerance.MODERATE: 50, RiskTolerance.HIGH: 80}
 
 PORTFOLIO_NAMES = {
@@ -141,6 +143,7 @@ class RecommendationEngine:
         warnings += self._warnings(profile, horizon, funds, data)
 
         name, description = self._name(profile, scoring_profile, mix, horizon)
+        actual_mix = self._actual_mix(funds)
 
         return PortfolioRecommendation(
             portfolio_name=name,
@@ -155,7 +158,8 @@ class RecommendationEngine:
             monthly_investment=budget,
             horizon_years=horizon,
             total_invested=budget * 12 * horizon,
-            asset_mix=self._actual_mix(funds),
+            asset_mix=actual_mix,
+            mix_reasons=self._mix_reasons(profile, score, label, horizon, fixed, mix, actual_mix, budget, len(funds)),
             projections=projections,
             goal_status=goal_status,
             shortfall_monthly=shortfall,
@@ -167,6 +171,37 @@ class RecommendationEngine:
             data_as_of=data.get("nav_date"),
             generated_at=data.get("generated_at"),
         )
+
+    @staticmethod
+    def _mix_reasons(profile: UserProfile, score: float, label: str, horizon: int, fixed: bool,
+                     mix: Dict[str, float], actual: Dict[str, float], budget: float, n_funds: int) -> List[str]:
+        """Why the plan holds this much equity, hybrid and debt, using the same rules that built it."""
+        cap, cap_reason = alloc.equity_limit(horizon, profile.life_stage, profile.goal)
+        if cap == 0:
+            return [cap_reason, "The plan uses liquid and short-term debt funds, which rarely fall in value."]
+
+        target = min(alloc.target_equity(score, horizon, profile.life_stage, profile.goal, fixed), 1.0)
+        hybrid_key = alloc.hybrid_bucket(mix["equity"], score, horizon)
+        total = mix["equity"] + mix["hybrid"] * HYBRID_EQUITY_SHARE[hybrid_key]
+        basis = f"Your {label} risk profile, {horizon}-year timeline, life stage and goal point to about"
+        if target > cap:
+            out = [f"{basis} {alloc._round_to(target, 0.05):.0%} equity.",
+                   cap_reason or f"No plan holds more than {cap:.0%} equity, so some stays in debt."]
+        else:
+            out = [f"{basis} {alloc._round_to(total, 0.05):.0%} equity."]
+            if fixed and horizon < 10:
+                out.append("Your date can't move, so the plan takes a little less equity than it otherwise would.")
+        if mix["hybrid"] > 0:
+            out.append(f"{mix['hybrid']:.0%} goes into a {BUCKETS[hybrid_key].label} fund, which holds both equity "
+                       f"and debt to soften market falls. Counting the equity inside it, your total equity is about "
+                       f"{alloc._round_to(total, 0.05):.0%}.")
+        if mix["debt"] > 0:
+            out.append(f"The remaining {mix['debt']:.0%} is in debt funds for stability.")
+        if any(abs(actual[k] - mix[k] * 100) >= 5 for k in mix):
+            out.append(f"With {n_funds} fund{'s' if n_funds != 1 else ''} at a ₹{budget:,.0f} monthly SIP "
+                       "(each SIP must be at least ₹500), some categories were combined, so the final mix "
+                       "differs a little from this.")
+        return out
 
     @staticmethod
     def _risk_score(profile: UserProfile):

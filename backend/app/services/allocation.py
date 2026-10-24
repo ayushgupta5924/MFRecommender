@@ -89,12 +89,34 @@ def _round_to(x: float, step: float) -> float:
     return round(x / step) * step
 
 
-def sleeve_mix(score: float, horizon: int, life_stage: LifeStage, goal: InvestmentGoal,
-               fixed_deadline: bool = False) -> Dict[str, float]:
-    """Fractions of the portfolio in equity / hybrid / debt (sum to 1)."""
-    if goal == InvestmentGoal.EMERGENCY_CORPUS or horizon < 3:
-        return {"equity": 0.0, "hybrid": 0.0, "debt": 1.0}
+def equity_limit(horizon: int, life_stage: LifeStage, goal: InvestmentGoal) -> Tuple[float, Optional[str]]:
+    """Most equity the plan may hold, and why, when a rule tighter than the long-horizon limit applies."""
+    years = f"{horizon} year{'s' if horizon != 1 else ''}"
+    if goal == InvestmentGoal.EMERGENCY_CORPUS:
+        return 0.0, "Emergency money must be available any day, so none of it goes into equity."
+    if horizon < 3:
+        return 0.0, (f"You need this money in {years}. Equity can fall sharply over short periods, "
+                     "so the plan holds none.")
+    limits = []
+    if horizon < 7:
+        cap = 0.25 if horizon < 4 else 0.35 if horizon < 5 else 0.60
+        limits.append((cap, f"Your goal is {years} away. A fall close to the date may not recover in time, "
+                            f"so equity is limited to {cap:.0%}."))
+    else:
+        limits.append((0.90, None))
+    if life_stage in LIFE_STAGE_EQUITY_CAP:
+        cap = LIFE_STAGE_EQUITY_CAP[life_stage]
+        who = "you're retired" if life_stage == LifeStage.RETIRED else "you're close to retirement"
+        limits.append((cap, f"Because {who}, equity is limited to {cap:.0%} to protect what you've built."))
+    if goal == InvestmentGoal.BUY_HOME and horizon <= 5:
+        limits.append((0.30, "A down payment due within 5 years can't wait for markets to recover, "
+                             "so equity is limited to 30%."))
+    return min(limits, key=lambda x: x[0])
 
+
+def target_equity(score: float, horizon: int, life_stage: LifeStage, goal: InvestmentGoal,
+                  fixed_deadline: bool = False) -> float:
+    """Equity the risk score, timeline, life stage and goal point to, before any limit."""
     s = score / 100
     equity = 0.15 + 0.70 * s + LIFE_STAGE_TILT[life_stage] + GOAL_TILT[goal]
     # Longer horizons can carry a little more equity, shorter ones less.
@@ -102,19 +124,16 @@ def sleeve_mix(score: float, horizon: int, life_stage: LifeStage, goal: Investme
     # A date that can't move leaves no time to wait out a fall near the end.
     if fixed_deadline and horizon < 10:
         equity -= 0.05
+    return max(0.0, equity)
 
-    if horizon < 4:
-        cap = 0.25
-    elif horizon < 5:
-        cap = 0.35
-    elif horizon < 7:
-        cap = 0.60
-    else:
-        cap = 0.90
-    cap = min(cap, LIFE_STAGE_EQUITY_CAP.get(life_stage, 1.0))
-    if goal == InvestmentGoal.BUY_HOME and horizon <= 5:
-        cap = min(cap, 0.30)
-    equity = max(0.0, min(equity, cap))
+
+def sleeve_mix(score: float, horizon: int, life_stage: LifeStage, goal: InvestmentGoal,
+               fixed_deadline: bool = False) -> Dict[str, float]:
+    """Fractions of the portfolio in equity / hybrid / debt (sum to 1)."""
+    cap, _ = equity_limit(horizon, life_stage, goal)
+    if cap == 0:
+        return {"equity": 0.0, "hybrid": 0.0, "debt": 1.0}
+    equity = min(target_equity(score, horizon, life_stage, goal, fixed_deadline), cap)
 
     # A hybrid sleeve smooths the ride for middle-of-the-road mixes.
     if 0.20 <= equity <= 0.75:
