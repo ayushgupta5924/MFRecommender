@@ -73,6 +73,14 @@ export default function ResultsScreen({ onBack, results }) {
               </span>
             ))}
           </div>
+          {results.mix_reasons?.length > 0 && (
+            <div className="mixReasons">
+              <div className="mixReasons__title">Why this mix</div>
+              <ul>
+                {results.mix_reasons.map((r) => <li key={r}>{r}</li>)}
+              </ul>
+            </div>
+          )}
         </div>
 
         {/* Projections */}

@@ -229,3 +229,18 @@ def test_suitability_warnings():
                                              emergency_months=6, dependents=2,
                                              has_health_insurance=True, has_term_insurance=True))
     assert not any(w for w in clean.warnings if "insurance" in w or "EMI" in w or "emergency" in w)
+
+
+def test_mix_reasons_name_the_limiting_rule():
+    short = engine.get_portfolio(UserProfile(life_stage="peak_earning", goal="wealth_creation", risk_tolerance="high",
+                                             risk_score=85, monthly_budget=20_000, horizon_years=4))
+    assert any("4 years away" in r and "35%" in r for r in short.mix_reasons)
+    home = engine.get_portfolio(UserProfile(life_stage="home_buyer", goal="buy_home", risk_tolerance="high",
+                                            risk_score=85, monthly_budget=20_000, horizon_years=5))
+    assert any("down payment" in r for r in home.mix_reasons)
+    long = engine.get_portfolio(UserProfile(life_stage="peak_earning", goal="wealth_creation", risk_tolerance="high",
+                                            risk_score=85, monthly_budget=20_000, horizon_years=12))
+    assert not any("limited to" in r for r in long.mix_reasons)
+    emergency = engine.get_portfolio(UserProfile(life_stage="peak_earning", goal="emergency_corpus",
+                                                 risk_tolerance="high", monthly_budget=5_000))
+    assert "Emergency money" in emergency.mix_reasons[0]
