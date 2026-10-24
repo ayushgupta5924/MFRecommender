@@ -7,7 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 
 from app.db import init_db
-from app.routes import auth, recommendations, review
+from app.routes import alerts, auth, recommendations, review
 
 logging.basicConfig(level=logging.INFO)
 
@@ -26,13 +26,14 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
     allow_credentials=False,
-    allow_methods=["GET", "POST", "DELETE"],
+    allow_methods=["GET", "POST", "PUT", "DELETE"],
     allow_headers=["Content-Type"],
 )
 app.add_middleware(GZipMiddleware, minimum_size=1000)
 app.include_router(recommendations.router, prefix="/api", tags=["recommendations"])
 app.include_router(auth.router, prefix="/api", tags=["auth"])
 app.include_router(review.router, prefix="/api", tags=["review"])
+app.include_router(alerts.router, prefix="/api", tags=["alerts"])
 
 
 @app.middleware("http")

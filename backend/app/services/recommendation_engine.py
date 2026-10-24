@@ -175,6 +175,7 @@ class RecommendationEngine:
         warnings += self._warnings(profile, horizon, funds, data)
 
         name, description = self._name(profile, scoring_profile, mix, horizon)
+        plan_note = self._plan_note(profile, score, label, horizon, fixed)
         actual_mix = self._actual_mix(funds)
 
         return PortfolioRecommendation(
@@ -192,6 +193,7 @@ class RecommendationEngine:
             horizon_years=horizon,
             total_invested=budget * 12 * horizon + lump,
             asset_mix=actual_mix,
+            plan_note=plan_note,
             mix_reasons=self._mix_reasons(profile, score, label, horizon, fixed, mix, actual_mix, budget, lump, len(funds)),
             projections=projections,
             goal_status=goal_status,
@@ -204,6 +206,16 @@ class RecommendationEngine:
             data_as_of=data.get("nav_date"),
             generated_at=data.get("generated_at"),
         )
+
+    @staticmethod
+    def _plan_note(profile: UserProfile, score: float, label: str, horizon: int, fixed: bool) -> Optional[str]:
+        """When a safety rule holds equity well below what the risk profile points to, say so up front,
+        so an Aggressive label next to a debt-heavy plan doesn't look like a mistake."""
+        cap, _, why = alloc.equity_limit(horizon, profile.life_stage, profile.goal)
+        target = alloc.target_equity(score, horizon, profile.life_stage, profile.goal, fixed)
+        if why and target - cap >= 0.15:
+            return f"{label} investor, cautious plan: {why}"
+        return None
 
     @staticmethod
     def _sip_needed(target: float, lump: float, horizon: int, rate: float) -> int:
@@ -231,7 +243,7 @@ class RecommendationEngine:
                      mix: Dict[str, float], actual: Dict[str, float], budget: float, lump: float,
                      n_funds: int) -> List[str]:
         """Why the plan holds this much equity, hybrid and debt, using the same rules that built it."""
-        cap, cap_reason = alloc.equity_limit(horizon, profile.life_stage, profile.goal)
+        cap, cap_reason, _ = alloc.equity_limit(horizon, profile.life_stage, profile.goal)
         if cap == 0:
             return [cap_reason, "The plan uses liquid and short-term debt funds, which rarely fall in value."]
 

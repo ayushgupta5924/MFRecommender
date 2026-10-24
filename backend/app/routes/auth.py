@@ -35,10 +35,11 @@ class UserOut(BaseModel):
     id: int
     email: str
     full_name: str
+    alerts_enabled: bool = True
 
 
 def _user_out(user: User) -> UserOut:
-    return UserOut(id=user.id, email=user.email, full_name=user.full_name)
+    return UserOut(id=user.id, email=user.email, full_name=user.full_name, alerts_enabled=user.alerts_enabled)
 
 
 def _send(db: Session, request: Request, email: str, purpose: str, full_name: Optional[str] = None) -> dict:

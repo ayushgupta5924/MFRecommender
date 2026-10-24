@@ -286,3 +286,12 @@ def test_rupees_use_indian_grouping():
     from app.services.recommendation_engine import inr
     assert [inr(n) for n in (500, 1_000, 99_999, 400_000, 12_345_678, -150_000)] == \
         ["₹500", "₹1,000", "₹99,999", "₹4,00,000", "₹1,23,45,678", "-₹1,50,000"]
+
+
+def test_plan_note_explains_a_cautious_plan_for_a_bold_investor():
+    capped = engine.get_portfolio(UserProfile(life_stage="home_buyer", goal="buy_home", risk_tolerance="high",
+                                              risk_score=85, monthly_budget=20_000, horizon_years=4))
+    assert capped.plan_note == "Aggressive investor, cautious plan: home purchase within 5 years"
+    free = engine.get_portfolio(UserProfile(life_stage="peak_earning", goal="wealth_creation", risk_tolerance="high",
+                                            risk_score=85, monthly_budget=20_000, horizon_years=15))
+    assert free.plan_note is None

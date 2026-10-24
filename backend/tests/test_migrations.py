@@ -20,12 +20,19 @@ def test_database_is_at_the_latest_revision():
 
 
 def test_database_created_before_migrations_is_adopted(tmp_path, monkeypatch):
-    """An older database built by create_all gets stamped, not recreated."""
+    """A database made by create_all before migrations existed has the first version's tables and no
+    version record. It gets recorded as version 0001, then upgraded like any other."""
+    from alembic import command
+
     import app.db as db
     old = create_engine(f"sqlite:///{(tmp_path / 'old.db').as_posix()}")
-    Base.metadata.create_all(old)
+    with old.begin() as conn:
+        cfg = db._alembic_config()
+        cfg.attributes["connection"] = conn
+        command.upgrade(cfg, "0001")
+        conn.exec_driver_sql("DROP TABLE alembic_version")
     monkeypatch.setattr(db, "engine", old)
     migrate()
     migrate()   # and running it again is harmless
-    tables = set(inspect(old).get_table_names())
-    assert {"users", "alembic_version"} <= tables
+    columns = {c["name"] for c in inspect(old).get_columns("users")}
+    assert "alerts_enabled" in columns and "alembic_version" in inspect(old).get_table_names()

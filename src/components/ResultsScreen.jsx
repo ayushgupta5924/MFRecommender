@@ -157,6 +157,7 @@ export default function ResultsScreen() {
       <div className="portfolioHero">
         <div className="portfolioHero__name">{results.portfolio_name}</div>
         <div className="portfolioHero__desc">{results.portfolio_description}</div>
+        {results.plan_note && <div className="planNote">🛡️ {results.plan_note}</div>}
 
         <div className="sipStrip">
           {results.monthly_investment > 0 && (
