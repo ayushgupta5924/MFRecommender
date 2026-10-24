@@ -1,371 +1,327 @@
 import math
+import urllib.parse
+from datetime import date
+from typing import Dict, List, Optional, Set
+
 from app.models.user import (
-    UserProfile, FundRecommendation, PortfolioRecommendation,
-    RiskTolerance, InvestmentGoal, LifeStage
+    FundAlternative, FundRecommendation, InvestmentGoal, LifeStage, PortfolioRecommendation,
+    Projection, RiskProfile, RiskTolerance, TaxRegime, UserProfile,
 )
-from app.services.mf_service import MutualFundService
-from typing import List, Dict, Tuple
+from app.services import allocation as alloc
+from app.services.catalog import BUCKETS
+from app.services.rankings_store import RankingsStore, store as default_store
+
+INFLATION = 0.06
+# Long-run return assumptions per sleeve are clamped to these bands so a hot or
+# cold few years in the data can't produce unrealistic projections.
+RETURN_BANDS = {"equity": (0.08, 0.12), "hybrid": (0.07, 0.11), "debt": (0.055, 0.08)}
+SCENARIO_SHIFT = {
+    "pessimistic": {"equity": -0.04, "hybrid": -0.025, "debt": -0.01},
+    "expected":    {"equity": 0.0,   "hybrid": 0.0,    "debt": 0.0},
+    "optimistic":  {"equity": +0.03, "hybrid": +0.02,  "debt": +0.0075},
+}
+# Prefer funds that have been through at least one full market cycle.
+PREFERRED_YEARS = {"equity": 5, "hybrid": 5, "debt": 3}
+RISK_TOLERANCE_SCORE = {RiskTolerance.LOW: 20, RiskTolerance.MODERATE: 50, RiskTolerance.HIGH: 80}
+
+PORTFOLIO_NAMES = {
+    (LifeStage.JUST_STARTED,     "conservative"): ("🌱 First Step",       "A safe, habit-building start to your investment journey."),
+    (LifeStage.JUST_STARTED,     "balanced"):     ("⚡ Young & Growing",   "Balanced growth for someone just getting started."),
+    (LifeStage.JUST_STARTED,     "aggressive"):   ("🚀 Young Achiever",    "Aggressive growth when time is on your side."),
+    (LifeStage.RECENTLY_MARRIED, "conservative"): ("🏡 Nest Builder",      "Steady returns to build a secure foundation together."),
+    (LifeStage.RECENTLY_MARRIED, "balanced"):     ("⚖️ Sleep Well",        "Balanced portfolio — grow wealth without losing sleep."),
+    (LifeStage.RECENTLY_MARRIED, "aggressive"):   ("🚀 Wealth Builder",    "Aggressive growth in your prime earning years."),
+    (LifeStage.NEW_PARENT,       "conservative"): ("🛡️ Family Shield",     "Capital protection with steady growth for your family."),
+    (LifeStage.NEW_PARENT,       "balanced"):     ("🎓 Family Builder",    "Steady long-term compounding while family costs rise."),
+    (LifeStage.NEW_PARENT,       "aggressive"):   ("🎓 Future Builder",    "Equity-heavy compounding for long-term family goals."),
+    (LifeStage.HOME_BUYER,       "conservative"): ("🏠 Home Saver",        "Capital-safe accumulation for your down payment."),
+    (LifeStage.HOME_BUYER,       "balanced"):     ("🏠 Home Ready",        "Balanced growth while protecting your home fund."),
+    (LifeStage.HOME_BUYER,       "aggressive"):   ("🏠 Home Accelerator",  "Faster accumulation if your purchase is 5+ years away."),
+    (LifeStage.PEAK_EARNING,     "conservative"): ("💼 Steady Compounder", "Reliable growth in your peak earning years."),
+    (LifeStage.PEAK_EARNING,     "balanced"):     ("📈 Peak Performer",    "Optimised for wealth creation in your prime years."),
+    (LifeStage.PEAK_EARNING,     "aggressive"):   ("🚀 Maximum Growth",    "High equity exposure to maximise long-term wealth."),
+    (LifeStage.NEAR_RETIREMENT,  "conservative"): ("🎯 Retirement Ready",  "Capital preservation with steady income generation."),
+    (LifeStage.NEAR_RETIREMENT,  "balanced"):     ("🎯 Safe Landing",      "Gradual shift to safety as retirement approaches."),
+    (LifeStage.NEAR_RETIREMENT,  "aggressive"):   ("🎯 Last Sprint",       "Controlled growth for last-mile corpus building."),
+    (LifeStage.RETIRED,          "conservative"): ("🧓 Peaceful Income",   "Capital safety with regular income focus."),
+    (LifeStage.RETIRED,          "balanced"):     ("🧓 Calm Compounder",   "Low-volatility growth to beat inflation."),
+    (LifeStage.RETIRED,          "aggressive"):   ("🧓 Active Retirement", "Moderate equity for inflation-beating returns."),
+}
+
+
+def pct(v: Optional[float], digits: int = 2) -> Optional[float]:
+    return None if v is None else round(v * 100, digits)
+
+
+def monthly_rate(annual: float) -> float:
+    return (1 + annual) ** (1 / 12) - 1
+
+
+def sip_future_value(monthly: float, years: int, annual: float) -> float:
+    """Future value of a SIP paid at the start of each month (how SIPs actually work)."""
+    if monthly <= 0 or years <= 0:
+        return 0.0
+    i, n = monthly_rate(annual), years * 12
+    if i == 0:
+        return monthly * n
+    return monthly * ((1 + i) ** n - 1) / i * (1 + i)
+
+
+def required_sip(target: float, years: int, annual: float) -> float:
+    unit = sip_future_value(1, years, annual)
+    return target / unit if unit > 0 else 0.0
 
 
 class RecommendationEngine:
-    def __init__(self):
-        self.mf_service = MutualFundService()
+    def __init__(self, rankings: RankingsStore = default_store):
+        self.rankings = rankings
 
-    SCHEME_MAP = {
-        "Equity":    "120503",  # Axis Bluechip Fund Direct Growth
-        "Mid Cap":   "119551",  # Axis Midcap Fund Direct Growth
-        "Large Cap": "118701",  # SBI Bluechip Fund Direct Growth
-        "Hybrid":    "118590",  # HDFC Balanced Advantage Direct Growth
-        "Debt":      "118989",  # HDFC Corporate Bond Direct Growth
-        "Liquid":    "120505",  # Axis Liquid Fund Direct Growth
-        "ELSS":      "120594",  # Axis Long Term Equity Direct Growth
-        "Index":     "120716",  # UTI Nifty 50 Index Direct Growth
-    }
-
-    # Expected annual returns per risk level (used for SIP math)
-    EXPECTED_RETURNS = {
-        RiskTolerance.LOW:      0.07,   # 7% p.a.
-        RiskTolerance.MODERATE: 0.10,   # 10% p.a.
-        RiskTolerance.HIGH:     0.13,   # 13% p.a.
-    }
-
-    # Named portfolios mapped to (life_stage, goal, risk)
-    PORTFOLIO_NAMES = {
-        (LifeStage.JUST_STARTED,     RiskTolerance.LOW):      ("🌱 First Step",       "A safe, habit-building start to your investment journey."),
-        (LifeStage.JUST_STARTED,     RiskTolerance.MODERATE): ("⚡ Young & Growing",   "Balanced growth for someone just getting started."),
-        (LifeStage.JUST_STARTED,     RiskTolerance.HIGH):     ("🚀 Young Achiever",    "Aggressive growth when time is on your side."),
-        (LifeStage.RECENTLY_MARRIED, RiskTolerance.LOW):      ("🏡 Nest Builder",      "Steady returns to build a secure foundation together."),
-        (LifeStage.RECENTLY_MARRIED, RiskTolerance.MODERATE): ("⚖️ Sleep Well",        "Balanced portfolio — grow wealth without losing sleep."),
-        (LifeStage.RECENTLY_MARRIED, RiskTolerance.HIGH):     ("🚀 Wealth Builder",    "Aggressive growth in your prime earning years."),
-        (LifeStage.NEW_PARENT,       RiskTolerance.LOW):      ("🛡️ Family Shield",     "Capital protection with steady growth for your family."),
-        (LifeStage.NEW_PARENT,       RiskTolerance.MODERATE): ("🎓 Education Fund",    "15–18 year compounding plan for your child's education."),
-        (LifeStage.NEW_PARENT,       RiskTolerance.HIGH):     ("🎓 Education Builder", "Equity-heavy education corpus for long-term compounding."),
-        (LifeStage.HOME_BUYER,       RiskTolerance.LOW):      ("🏠 Home Saver",        "Capital-safe accumulation for your down payment."),
-        (LifeStage.HOME_BUYER,       RiskTolerance.MODERATE): ("🏠 Home Ready",        "Balanced growth while protecting your home fund."),
-        (LifeStage.HOME_BUYER,       RiskTolerance.HIGH):     ("🏠 Home Accelerator",  "Faster accumulation if your purchase is 5+ years away."),
-        (LifeStage.PEAK_EARNING,     RiskTolerance.LOW):      ("💼 Steady Compounder", "Reliable growth in your peak earning years."),
-        (LifeStage.PEAK_EARNING,     RiskTolerance.MODERATE): ("📈 Peak Performer",    "Optimised for wealth creation in your prime years."),
-        (LifeStage.PEAK_EARNING,     RiskTolerance.HIGH):     ("🚀 Maximum Growth",    "Full equity exposure to maximise long-term wealth."),
-        (LifeStage.NEAR_RETIREMENT,  RiskTolerance.LOW):      ("🎯 Retirement Ready",  "Capital preservation with steady income generation."),
-        (LifeStage.NEAR_RETIREMENT,  RiskTolerance.MODERATE): ("🎯 Safe Landing",      "Gradual shift to safety as retirement approaches."),
-        (LifeStage.NEAR_RETIREMENT,  RiskTolerance.HIGH):     ("🎯 Last Sprint",       "Controlled aggression for last-mile corpus building."),
-        (LifeStage.RETIRED,          RiskTolerance.LOW):      ("🧓 Peaceful Income",   "Capital safety with regular income focus."),
-        (LifeStage.RETIRED,          RiskTolerance.MODERATE): ("🧓 Calm Compounder",   "Low-volatility growth to beat inflation."),
-        (LifeStage.RETIRED,          RiskTolerance.HIGH):     ("🧓 Active Retirement", "Moderate equity for inflation-beating returns."),
-    }
-
-    # ── SIP Calculator ─────────────────────────────────────────────────────────
-
-    def calculate_required_sip(self, target: float, years: int, annual_rate: float) -> float:
-        """
-        Calculate monthly SIP needed to reach a target amount.
-        Formula: SIP = FV * r / ((1+r)^n - 1)
-        where r = monthly rate, n = months
-        """
-        if years <= 0 or target <= 0:
-            return 0
-        r = annual_rate / 12          # monthly rate
-        n = years * 12                # total months
-        sip = target * r / ((math.pow(1 + r, n)) - 1)
-        return round(sip, 2)
-
-    def calculate_future_value(self, monthly_sip: float, years: int, annual_rate: float) -> float:
-        """Calculate future value of a monthly SIP."""
-        if years <= 0 or monthly_sip <= 0:
-            return 0
-        r = annual_rate / 12
-        n = years * 12
-        fv = monthly_sip * (math.pow(1 + r, n) - 1) / r * (1 + r)
-        return round(fv, 2)
-
-    # ── Main entry point ───────────────────────────────────────────────────────
+    # ── Public API ───────────────────────────────────────────────────────────
 
     def get_recommendations(self, profile: UserProfile) -> List[FundRecommendation]:
-        """Returns flat list of FundRecommendation for API backward compatibility."""
-        portfolio = self.get_portfolio(profile)
-        return portfolio.funds
+        return self.get_portfolio(profile).funds
 
     def get_portfolio(self, profile: UserProfile) -> PortfolioRecommendation:
-        """Returns a full named portfolio with SIP math and fund recommendations."""
-        budget    = float(profile.monthly_budget or profile.budget or 0)
-        risk      = profile.risk_tolerance
-        horizon   = int(profile.target_years or profile.investment_horizon or 5)
-        life_stage= profile.life_stage
-        goal      = profile.goal
-        target    = profile.target_amount
-        years     = profile.target_years or horizon
+        data = self.rankings.get()
+        score = profile.risk_score if profile.risk_score is not None else RISK_TOLERANCE_SCORE[profile.risk_tolerance]
+        label, scoring_profile = alloc.risk_label(score)
+        horizon = alloc.resolve_horizon(profile.goal, profile.get_horizon())
+        target = profile.target_amount or None
+        warnings: List[str] = []
 
-        expected_return = self.EXPECTED_RETURNS[risk]
+        # 1. Decide the monthly amount. The investor's own budget always wins;
+        #    a target only tells us whether that budget is enough.
+        budget = profile.get_budget()
+        provisional_mix, provisional_slots = alloc.build_slots(
+            score, horizon, profile.life_stage, profile.goal, max(budget, 10_000), profile.tax_regime)
+        expected_rate = self._portfolio_rate(provisional_mix, provisional_slots, data, "expected")
+        sip_needed = math.ceil(required_sip(target, horizon, expected_rate) / 100) * 100 if target else None
+        if budget <= 0:
+            if not sip_needed:
+                raise ValueError("Enter a monthly amount or a target corpus.")
+            budget = max(float(sip_needed), alloc.MIN_SIP)
+        if budget < alloc.MIN_SIP:
+            raise ValueError(f"The minimum monthly SIP is ₹{alloc.MIN_SIP}.")
 
-        # SIP Math
-        sip_required = None
-        if target and years:
-            sip_required = self.calculate_required_sip(target, years, expected_return)
+        # 2. Allocation for the real budget.
+        mix, slots = alloc.build_slots(score, horizon, profile.life_stage, profile.goal, budget, profile.tax_regime)
+        hybrid_key = alloc.hybrid_bucket(max(mix["equity"], 0.2), score, horizon)
+        slots = alloc.consolidate(slots, budget, hybrid_key, protected=["elss"])
+        amounts = alloc.to_amounts(slots, budget)
 
-        effective_budget = sip_required if sip_required else budget
+        # 3. Pick the best fund in each bucket for this investor.
+        funds = self._select_funds(slots, amounts, data, scoring_profile, profile, horizon)
+        self._renormalise(funds, budget)
 
-        # Build allocation
-        allocation = self._build_allocation(risk, life_stage, goal, horizon, effective_budget)
-        allocation = self._normalize(allocation)
+        # 4. Projections at three return scenarios.
+        projections = {}
+        for scenario in SCENARIO_SHIFT:
+            rate = self._portfolio_rate(mix, slots, data, scenario)
+            corpus = sip_future_value(budget, horizon, rate)
+            projections[scenario] = Projection(
+                annual_return=round(rate * 100, 2),
+                corpus=round(corpus),
+                corpus_today=round(corpus / (1 + INFLATION) ** horizon),
+            )
+        expected = projections["expected"].annual_return / 100
 
-        # Portfolio name
-        key = (life_stage, risk)
-        name, description = self.PORTFOLIO_NAMES.get(
-            key, ("📊 Custom Portfolio", "A personalised fund mix based on your profile.")
-        )
+        goal_status = shortfall = None
+        if target:
+            sip_needed = math.ceil(required_sip(target, horizon, expected) / 100) * 100
+            goal_status = "on_track" if projections["expected"].corpus >= target else "shortfall"
+            if goal_status == "shortfall":
+                shortfall = float(max(sip_needed - budget, 0))
 
-        # Fetch funds
-        funds = self._fetch_funds(allocation, effective_budget, risk, goal, horizon, life_stage)
+        warnings += self._warnings(profile, horizon, funds, data)
+
+        name, description = self._name(profile, scoring_profile, mix, horizon)
 
         return PortfolioRecommendation(
             portfolio_name=name,
             portfolio_emoji=name.split()[0],
             portfolio_description=description,
-            monthly_sip_required=sip_required,
+            monthly_sip_required=float(sip_needed) if sip_needed else None,
             target_amount=target,
-            target_years=years,
-            expected_return=expected_return * 100,
+            target_years=horizon if target else profile.target_years,
+            expected_return=round(expected * 100, 2),
             funds=funds,
+            monthly_investment=budget,
+            horizon_years=horizon,
+            total_invested=budget * 12 * horizon,
+            asset_mix=self._actual_mix(funds),
+            projections=projections,
+            goal_status=goal_status,
+            shortfall_monthly=shortfall,
+            risk_profile=RiskProfile(score=round(score, 1), label=label, profile=scoring_profile),
+            inflation_assumption=INFLATION * 100,
+            warnings=warnings,
+            data_as_of=data.get("nav_date"),
+            generated_at=data.get("generated_at"),
         )
 
-    # ── Allocation Builder ─────────────────────────────────────────────────────
+    @staticmethod
+    def _name(profile: UserProfile, scoring_profile: str, mix: Dict[str, float], horizon: int):
+        if profile.goal == InvestmentGoal.EMERGENCY_CORPUS:
+            return "🛟 Safety Net", "Instantly accessible, low-risk funds for life's surprises."
+        if profile.goal == InvestmentGoal.TAX_SAVING and profile.tax_regime != TaxRegime.NEW:
+            return "🧾 Tax Smart", "Section 80C savings alongside a diversified long-term mix."
+        if mix["equity"] == 0:
+            return "🔒 Capital Shield", f"Debt-focused plan for money you need within {horizon} years."
+        return PORTFOLIO_NAMES.get((profile.life_stage, scoring_profile),
+                                   ("📊 Custom Portfolio", "A fund mix based on your profile."))
 
-    def _build_allocation(
-        self,
-        risk: RiskTolerance,
-        life_stage: LifeStage,
-        goal: InvestmentGoal,
-        horizon: int,
-        budget: float
-    ) -> dict:
+    # ── Fund selection ───────────────────────────────────────────────────────
 
-        # Start with life-stage base
-        alloc = self._life_stage_base(life_stage, risk)
+    def _candidates(self, bucket_key: str, data: dict, scoring_profile: str) -> List[dict]:
+        bucket = BUCKETS[bucket_key]
+        funds = data["buckets"].get(bucket_key, {}).get("funds", [])
+        ranked = sorted(funds, key=lambda f: f["scores"][scoring_profile], reverse=True)
+        seasoned = [f for f in ranked if f["years_history"] >= PREFERRED_YEARS[bucket.sleeve]]
+        return seasoned if len(seasoned) >= 3 else ranked
 
-        # Overlay goal-specific adjustments
-        alloc = self._apply_goal(alloc, goal, horizon)
+    def _seasoned_note(self, bucket_key: str, rank_of: int, data: dict) -> str:
+        total = data["buckets"][bucket_key]["stats"]["count"]
+        years = PREFERRED_YEARS[BUCKETS[bucket_key].sleeve]
+        return f" with {years}+ years of history" if rank_of < total else ""
 
-        # Overlay horizon adjustments
-        alloc = self._apply_horizon(alloc, horizon)
-
-        return alloc
-
-    def _life_stage_base(self, life_stage: LifeStage, risk: RiskTolerance) -> dict:
-        """
-        Life stage determines the fundamental asset mix.
-        Risk tolerance then tilts it more aggressive or conservative.
-        """
-        base = {
-            LifeStage.JUST_STARTED: {
-                RiskTolerance.LOW:      {"Debt": 50, "Hybrid": 30, "Liquid": 20},
-                RiskTolerance.MODERATE: {"Equity": 40, "Hybrid": 30, "Debt": 20, "Index": 10},
-                RiskTolerance.HIGH:     {"Equity": 50, "Mid Cap": 30, "Index": 20},
-            },
-            LifeStage.RECENTLY_MARRIED: {
-                RiskTolerance.LOW:      {"Debt": 40, "Hybrid": 35, "Liquid": 25},
-                RiskTolerance.MODERATE: {"Hybrid": 40, "Equity": 30, "Debt": 20, "Liquid": 10},
-                RiskTolerance.HIGH:     {"Equity": 45, "Mid Cap": 30, "Hybrid": 15, "Debt": 10},
-            },
-            LifeStage.NEW_PARENT: {
-                RiskTolerance.LOW:      {"Debt": 45, "Hybrid": 30, "Liquid": 25},
-                RiskTolerance.MODERATE: {"Hybrid": 35, "Equity": 30, "Debt": 25, "Liquid": 10},
-                RiskTolerance.HIGH:     {"Equity": 40, "Mid Cap": 25, "Hybrid": 20, "Debt": 15},
-            },
-            LifeStage.HOME_BUYER: {
-                RiskTolerance.LOW:      {"Debt": 55, "Liquid": 30, "Hybrid": 15},
-                RiskTolerance.MODERATE: {"Debt": 40, "Hybrid": 35, "Liquid": 25},
-                RiskTolerance.HIGH:     {"Hybrid": 40, "Equity": 35, "Debt": 25},
-            },
-            LifeStage.PEAK_EARNING: {
-                RiskTolerance.LOW:      {"Debt": 40, "Hybrid": 35, "Equity": 15, "Liquid": 10},
-                RiskTolerance.MODERATE: {"Equity": 40, "Hybrid": 25, "Debt": 20, "Index": 15},
-                RiskTolerance.HIGH:     {"Equity": 40, "Mid Cap": 25, "Large Cap": 20, "Index": 15},
-            },
-            LifeStage.NEAR_RETIREMENT: {
-                RiskTolerance.LOW:      {"Debt": 55, "Liquid": 30, "Hybrid": 15},
-                RiskTolerance.MODERATE: {"Debt": 45, "Hybrid": 30, "Equity": 15, "Liquid": 10},
-                RiskTolerance.HIGH:     {"Debt": 35, "Hybrid": 30, "Equity": 25, "Liquid": 10},
-            },
-            LifeStage.RETIRED: {
-                RiskTolerance.LOW:      {"Debt": 60, "Liquid": 30, "Hybrid": 10},
-                RiskTolerance.MODERATE: {"Debt": 50, "Hybrid": 30, "Liquid": 20},
-                RiskTolerance.HIGH:     {"Debt": 40, "Hybrid": 30, "Equity": 20, "Liquid": 10},
-            },
-        }
-        return dict(base[life_stage][risk])
-
-    def _apply_goal(self, alloc: dict, goal: InvestmentGoal, horizon: int) -> dict:
-        a = dict(alloc)
-
-        if goal == InvestmentGoal.TAX_SAVING:
-            # Replace up to 50% of equity with ELSS
-            eq = a.pop("Equity", 0)
-            elss = round(eq * 0.6)
-            a["ELSS"]   = a.get("ELSS", 0) + elss
-            a["Equity"] = eq - elss
-
-        elif goal == InvestmentGoal.EMERGENCY_CORPUS:
-            # Safety first — all liquid and debt
-            total = sum(a.values())
-            a = {"Liquid": round(total * 0.6), "Debt": round(total * 0.4)}
-
-        elif goal == InvestmentGoal.BUY_HOME and horizon <= 4:
-            # Short home-buy horizon — protect capital
-            equity = a.pop("Equity", 0) + a.pop("Mid Cap", 0)
-            a["Debt"]   = a.get("Debt", 0) + round(equity * 0.6)
-            a["Liquid"] = a.get("Liquid", 0) + round(equity * 0.4)
-
-        elif goal == InvestmentGoal.CHILD_EDUCATION and horizon >= 10:
-            # Long education horizon — add index for low-cost equity
-            eq = a.get("Equity", 0)
-            shift = round(eq * 0.25)
-            a["Equity"] = eq - shift
-            a["Index"]  = a.get("Index", 0) + shift
-
-        elif goal == InvestmentGoal.RETIREMENT and horizon >= 15:
-            # Very long term — maximize equity compounding
-            debt = a.get("Debt", 0)
-            shift = round(debt * 0.3)
-            a["Debt"]   = debt - shift
-            a["Index"]  = a.get("Index", 0) + shift
-
-        elif goal == InvestmentGoal.FINANCIAL_FREEDOM:
-            # Financial freedom — balanced growth + index
-            eq = a.get("Equity", 0)
-            shift = round(eq * 0.2)
-            a["Equity"] = eq - shift
-            a["Index"]  = a.get("Index", 0) + shift
-
-        return a
-
-    def _apply_horizon(self, alloc: dict, horizon: int) -> dict:
-        a = dict(alloc)
-
-        if horizon < 3:
-            # Short term — move all equity to debt/liquid
-            risky = a.pop("Equity", 0) + a.pop("Mid Cap", 0) + a.pop("ELSS", 0)
-            if risky:
-                a["Liquid"] = a.get("Liquid", 0) + round(risky * 0.5)
-                a["Debt"]   = a.get("Debt", 0)   + round(risky * 0.5)
-
-        elif horizon >= 10:
-            # Long term — move liquid to equity
-            liquid = a.pop("Liquid", 0)
-            if liquid:
-                a["Equity"] = a.get("Equity", 0) + liquid
-
-        return a
-
-    # ── Normalize ──────────────────────────────────────────────────────────────
-
-    def _normalize(self, allocation: dict) -> dict:
-        alloc = {k: v for k, v in allocation.items() if v and v > 0}
-        total = sum(alloc.values())
-        if not total:
-            return {"Debt": 100}
-        normalized = {k: round(v * 100 / total) for k, v in alloc.items()}
-        # Fix rounding so it always sums to 100
-        diff = 100 - sum(normalized.values())
-        if diff and normalized:
-            largest = max(normalized, key=normalized.get)
-            normalized[largest] += diff
-        return normalized
-
-    # ── Fetch Funds ────────────────────────────────────────────────────────────
-
-    def _fetch_funds(
-        self,
-        allocation: dict,
-        budget: float,
-        risk: RiskTolerance,
-        goal: InvestmentGoal,
-        horizon: int,
-        life_stage: LifeStage,
-    ) -> List[FundRecommendation]:
-        funds = []
-        for category, percentage in allocation.items():
-            scheme_code = self.SCHEME_MAP.get(category)
-            if not scheme_code:
+    def _select_funds(self, slots: Dict[str, float], amounts: Dict[str, int], data: dict,
+                      scoring_profile: str, profile: UserProfile, horizon: int) -> List[FundRecommendation]:
+        used_amcs: Set[str] = set()
+        picks = []
+        # Biggest slots choose first so they get first pick of fund houses.
+        for bucket_key in sorted(slots, key=lambda k: -slots[k]):
+            candidates = self._candidates(bucket_key, data, scoring_profile)
+            if not candidates:
                 continue
+            # Spread across fund houses: take the best fund from an AMC not already used, if it is in the top 5.
+            choice = next((f for f in candidates[:5] if f["amc"] not in used_amcs), candidates[0])
+            used_amcs.add(choice["amc"])
+            rank = candidates.index(choice) + 1
+            alternatives = [f for f in candidates if f["code"] != choice["code"]][:2]
+            picks.append(self._to_recommendation(
+                bucket_key, choice, rank, len(candidates), alternatives, amounts[bucket_key],
+                slots[bucket_key], data, scoring_profile, profile, horizon))
+        picks.sort(key=lambda f: -f.allocation_amount)
+        return picks
+
+    def _to_recommendation(self, bucket_key, f, rank, rank_of, alternatives, amount, fraction, data,
+                           scoring_profile, profile, horizon) -> FundRecommendation:
+        bucket = BUCKETS[bucket_key]
+        stats = data["buckets"][bucket_key]["stats"]
+        return FundRecommendation(
+            scheme_name=f["name"],
+            scheme_code=f["code"],
+            category=bucket.label,
+            nav=f["nav"],
+            returns_1y=pct(f.get("cagr_1y")),
+            returns_3y=pct(f.get("cagr_3y")),
+            returns_5y=pct(f.get("cagr_5y")),
+            risk_level=bucket.risk_level,
+            allocation_percentage=round(fraction * 100, 2),
+            allocation_amount=float(amount),
+            monthly_sip_amount=float(amount),
+            reason=self._reason(bucket, f, rank, rank_of, stats, scoring_profile, profile, horizon,
+                                self._seasoned_note(bucket_key, rank_of, data)),
+            investment_url=f"https://groww.in/search?q={urllib.parse.quote(f['name'] + ' Direct Growth')}",
+            amc=f["amc"],
+            bucket=bucket_key,
+            sebi_category=f.get("category", ""),
+            nav_date=f.get("nav_date"),
+            rank=rank,
+            rank_of=rank_of,
+            score=f["scores"][scoring_profile],
+            volatility=pct(f.get("volatility")),
+            max_drawdown=pct(f.get("max_drawdown")),
+            rolling_return_median=pct(f.get("rolling_median")),
+            rolling_years=f.get("rolling_years"),
+            category_median_3y=pct(stats.get("median_cagr_3y")),
+            category_median_5y=pct(stats.get("median_cagr_5y")),
+            years_history=round(f["years_history"], 1),
+            lock_in_years=bucket.lock_in_years,
+            alternatives=[FundAlternative(
+                scheme_name=a["name"], scheme_code=a["code"], amc=a["amc"],
+                returns_3y=pct(a.get("cagr_3y")), returns_5y=pct(a.get("cagr_5y")),
+                score=a["scores"][scoring_profile]) for a in alternatives],
+        )
+
+    @staticmethod
+    def _renormalise(funds: List[FundRecommendation], budget: float) -> None:
+        """If a bucket had no funds, spread its money over the rest so totals still add up."""
+        total = sum(f.allocation_amount for f in funds)
+        if not funds or abs(total - budget) < 1:
+            return
+        for f in funds:
+            f.allocation_amount = f.monthly_sip_amount = float(round(f.allocation_amount * budget / total))
+        funds[0].allocation_amount += budget - sum(f.allocation_amount for f in funds)
+        funds[0].monthly_sip_amount = funds[0].allocation_amount
+        for f in funds:
+            f.allocation_percentage = round(f.allocation_amount * 100 / budget, 2)
+
+    @staticmethod
+    def _actual_mix(funds: List[FundRecommendation]) -> Dict[str, float]:
+        mix = {"equity": 0.0, "hybrid": 0.0, "debt": 0.0}
+        for f in funds:
+            mix[BUCKETS[f.bucket].sleeve] += f.allocation_percentage
+        return {k: round(v, 1) for k, v in mix.items()}
+
+    # ── Projections ──────────────────────────────────────────────────────────
+
+    def _portfolio_rate(self, mix: Dict[str, float], slots: Dict[str, float], data: dict, scenario: str) -> float:
+        """Weighted long-run return from each bucket's median rolling return (category, not top fund)."""
+        total = sum(slots.values()) or 1
+        rate = 0.0
+        for key, weight in slots.items():
+            sleeve = BUCKETS[key].sleeve
+            stats = data["buckets"].get(key, {}).get("stats", {})
+            assumed = stats.get("median_rolling_median") or stats.get("median_cagr_5y") or stats.get("median_cagr_3y")
+            lo, hi = RETURN_BANDS[sleeve]
+            assumed = min(max(assumed if assumed is not None else lo, lo), hi)
+            rate += weight / total * (assumed + SCENARIO_SHIFT[scenario][sleeve])
+        return max(rate, 0.0)
+
+    # ── Explanations ─────────────────────────────────────────────────────────
+
+    def _reason(self, bucket, f, rank, rank_of, stats, scoring_profile, profile, horizon, seasoned="") -> str:
+        profile_word = {"conservative": "a conservative", "balanced": "a moderate", "aggressive": "an aggressive"}[scoring_profile]
+        parts = [bucket.role, f"Ranked #{rank} of {rank_of} {bucket.label} funds{seasoned} for {profile_word} investor."]
+
+        ret_key, ret_label = ("cagr_5y", "5-yr") if f.get("cagr_5y") is not None else ("cagr_3y", "3-yr")
+        fund_ret, cat_ret = f.get(ret_key), stats.get(f"median_{ret_key}")
+        if fund_ret is not None and cat_ret is not None:
+            parts.append(f"{ret_label} return {fund_ret * 100:.1f}% p.a. vs category median {cat_ret * 100:.1f}%.")
+        dd, cat_dd = f.get("max_drawdown"), stats.get("median_max_drawdown")
+        if dd is not None and cat_dd is not None and bucket.sleeve != "debt":
+            parts.append(f"Worst fall in 5 yrs {dd * 100:.0f}% vs category {cat_dd * 100:.0f}%.")
+
+        if bucket.key == "elss" and profile.goal == InvestmentGoal.TAX_SAVING:
+            parts.append("Up to ₹1.5 lakh a year is deductible under Section 80C (old tax regime only).")
+        elif profile.goal == InvestmentGoal.EMERGENCY_CORPUS and bucket.key == "liquid":
+            parts.append("Redemptions are typically paid the next working day.")
+        elif profile.life_stage == LifeStage.NEAR_RETIREMENT and bucket.sleeve == "debt":
+            parts.append("Protects what you have built from market swings close to retirement.")
+        elif profile.life_stage == LifeStage.HOME_BUYER and bucket.sleeve == "debt":
+            parts.append("Keeps your down payment safe from equity market falls.")
+        return " ".join(parts)
+
+    def _warnings(self, profile: UserProfile, horizon: int, funds: List[FundRecommendation], data: dict) -> List[str]:
+        out = []
+        buckets = {f.bucket for f in funds}
+        if horizon < 3 and profile.goal != InvestmentGoal.EMERGENCY_CORPUS:
+            out.append("Your horizon is under 3 years, so the plan holds no equity: equity can fall sharply over short periods.")
+        if "elss" in buckets:
+            out.append("ELSS units are locked in for 3 years from each SIP instalment.")
+        if profile.goal == InvestmentGoal.TAX_SAVING and profile.tax_regime == TaxRegime.NEW:
+            out.append("Under the new tax regime ELSS gives no deduction, so the plan uses regular equity funds instead.")
+        if "small_cap" in buckets or "mid_cap" in buckets:
+            out.append("Mid and small cap funds can fall 30-50% in bad years; stay invested through the full horizon.")
+        if any((f.years_history or 0) < 5 and BUCKETS[f.bucket].sleeve != "debt" for f in funds):
+            out.append("Some picks have under 5 years of history; past results cover less than a full market cycle.")
+        nav_date = data.get("nav_date")
+        if nav_date:
             try:
-                details = self.mf_service.get_scheme_details(scheme_code)
-                if details and details.get("data"):
-                    nav_data = details["data"]
-                    meta     = details.get("meta", {})
-                    monthly_sip = round(budget * percentage / 100)
-                    funds.append(FundRecommendation(
-                        scheme_name=meta.get("scheme_name", f"{category} Fund"),
-                        scheme_code=scheme_code,
-                        category=category,
-                        nav=float(nav_data[0]["nav"]),
-                        returns_1y=self.mf_service.calculate_returns(nav_data, 1),
-                        returns_3y=self.mf_service.calculate_returns(nav_data, 3),
-                        returns_5y=self.mf_service.calculate_returns(nav_data, 5),
-                        risk_level=self._map_risk_level(category),
-                        allocation_percentage=float(percentage),
-                        allocation_amount=round(budget * percentage / 100),
-                        monthly_sip_amount=float(monthly_sip),
-                        reason=self._get_reason(category, risk, goal, horizon, life_stage),
-                        investment_url=f"https://www.mfapi.in/mf/{scheme_code}",
-                    ))
-            except Exception as e:
-                print(f"Error fetching {category} ({scheme_code}): {e}")
-        return funds
-
-    # ── Helpers ────────────────────────────────────────────────────────────────
-
-    def _map_risk_level(self, category: str) -> str:
-        if category in ["Equity", "Mid Cap", "ELSS"]:    return "High"
-        if category in ["Hybrid", "Large Cap", "Index"]: return "Moderate"
-        return "Low"
-
-    def _get_reason(
-        self,
-        category: str,
-        risk: RiskTolerance,
-        goal: InvestmentGoal,
-        horizon: int,
-        life_stage: LifeStage,
-    ) -> str:
-        base = {
-            "Equity":    "Equity funds provide strong long-term capital appreciation.",
-            "Mid Cap":   "Mid Cap funds offer high growth potential for aggressive investors.",
-            "Large Cap": "Large Cap funds deliver stable returns from established companies.",
-            "Hybrid":    "Hybrid funds balance growth and stability in a single fund.",
-            "Debt":      "Debt funds protect capital with predictable, low-risk returns.",
-            "Liquid":    "Liquid funds offer instant access with near-zero risk.",
-            "ELSS":      "ELSS funds grow your wealth while saving tax under Section 80C.",
-            "Index":     "Index funds offer low-cost, passive exposure to market returns.",
-        }.get(category, f"{category} fund suits your profile.")
-
-        extras = []
-
-        # Goal-specific
-        if goal == InvestmentGoal.TAX_SAVING and category == "ELSS":
-            extras.append("Saves up to ₹46,800 in tax annually under Section 80C")
-        if goal == InvestmentGoal.CHILD_EDUCATION and category == "Index":
-            extras.append("Low expense ratio maximises corpus over a 15+ year education horizon")
-        if goal == InvestmentGoal.EMERGENCY_CORPUS and category == "Liquid":
-            extras.append("Redeemable within 1 business day — ideal for emergencies")
-        if goal == InvestmentGoal.RETIREMENT and category in ["Index", "Equity"]:
-            extras.append("Long compounding runway makes this ideal for retirement corpus")
-
-        # Life stage specific
-        if life_stage == LifeStage.NEW_PARENT and category == "Hybrid":
-            extras.append("Reduces volatility — important when family expenses are high")
-        if life_stage == LifeStage.NEAR_RETIREMENT and category == "Debt":
-            extras.append("Protects your corpus from market swings close to retirement")
-        if life_stage == LifeStage.JUST_STARTED and category in ["Equity", "Mid Cap"]:
-            extras.append("Starting early with equity maximises compounding benefit")
-        if life_stage == LifeStage.HOME_BUYER and category in ["Liquid", "Debt"]:
-            extras.append("Capital protection ensures your down payment is safe")
-
-        # Horizon specific
-        if horizon >= 10 and category == "Equity":
-            extras.append(f"Over {horizon} years, equity historically delivers 12–15% annually")
-        if horizon < 3 and category in ["Liquid", "Debt"]:
-            extras.append("Short horizon demands capital safety over growth")
-
-        if extras:
-            return base + " " + extras[0] + "."
-        return base
+                age = (date.today() - date.fromisoformat(nav_date)).days
+                if age > 5:
+                    out.append(f"Fund data is {age} days old (NAV date {nav_date}).")
+            except ValueError:
+                pass
+        return out

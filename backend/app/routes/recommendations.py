@@ -1,5 +1,6 @@
 from fastapi import APIRouter, HTTPException
 from app.models.user import UserProfile, FundRecommendation, PortfolioRecommendation
+from app.services.catalog import BUCKETS
 from app.services.recommendation_engine import RecommendationEngine
 from typing import List
 import logging
@@ -9,50 +10,51 @@ router = APIRouter()
 engine = RecommendationEngine()
 
 
-@router.post("/recommend", response_model=List[FundRecommendation])
-async def get_recommendations(profile: UserProfile):
-    """Backward-compatible endpoint — returns flat fund list."""
+def _build(profile: UserProfile) -> PortfolioRecommendation:
     try:
-        logger.info(f"recommend: life_stage={profile.life_stage}, goal={profile.goal}, risk={profile.risk_tolerance}")
-        funds = engine.get_recommendations(profile)
-        if not funds:
-            raise HTTPException(status_code=404, detail="No suitable funds found")
-        return funds
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Error in /recommend: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        return engine.get_portfolio(profile)
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail=str(e))
+    except Exception:
+        logger.exception("Failed to build portfolio")
+        raise HTTPException(status_code=500, detail="Could not build a portfolio right now. Please try again.")
 
 
 @router.post("/portfolio", response_model=PortfolioRecommendation)
-async def get_portfolio(profile: UserProfile):
-    """New endpoint — returns named portfolio with SIP math."""
-    try:
-        logger.info(f"portfolio: life_stage={profile.life_stage}, goal={profile.goal}, target={profile.target_amount}")
-        portfolio = engine.get_portfolio(profile)
-        return portfolio
-    except Exception as e:
-        logger.error(f"Error in /portfolio: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+def get_portfolio(profile: UserProfile):
+    """Named portfolio with fund picks, projections and the evidence behind each pick."""
+    logger.info("portfolio: life_stage=%s goal=%s risk=%s score=%s horizon=%s",
+                profile.life_stage.value, profile.goal.value, profile.risk_tolerance.value,
+                profile.risk_score, profile.get_horizon())
+    return _build(profile)
 
 
-@router.get("/schemes")
-async def get_all_schemes():
-    try:
-        return engine.mf_service.get_all_schemes()
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+@router.post("/recommend", response_model=List[FundRecommendation])
+def get_recommendations(profile: UserProfile):
+    """Backward-compatible endpoint — returns flat fund list."""
+    funds = _build(profile).funds
+    if not funds:
+        raise HTTPException(status_code=404, detail="No suitable funds found")
+    return funds
 
 
-@router.get("/scheme/{scheme_code}")
-async def get_scheme_details(scheme_code: str):
-    try:
-        details = engine.mf_service.get_scheme_details(scheme_code)
-        if not details:
-            raise HTTPException(status_code=404, detail="Scheme not found")
-        return details
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+@router.get("/health")
+def health():
+    data = engine.rankings.get()
+    return {
+        "status": "ok",
+        "data_as_of": data.get("nav_date"),
+        "generated_at": data.get("generated_at"),
+        "funds_ranked": sum(len(b["funds"]) for b in data["buckets"].values()),
+    }
+
+
+@router.get("/categories")
+def categories():
+    """Category medians, so the UI can explain what 'good' looks like in each bucket."""
+    data = engine.rankings.get()
+    return [
+        {"key": k, "label": BUCKETS[k].label, "sleeve": BUCKETS[k].sleeve, "risk_level": BUCKETS[k].risk_level,
+         **data["buckets"].get(k, {}).get("stats", {})}
+        for k in BUCKETS
+    ]
