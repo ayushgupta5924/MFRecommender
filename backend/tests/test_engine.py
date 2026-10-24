@@ -280,3 +280,9 @@ def test_large_equity_lump_sum_suggests_an_stp_and_small_one_is_rejected():
     with pytest.raises(ValueError):
         engine.get_portfolio(UserProfile(life_stage="peak_earning", goal="wealth_creation",
                                          risk_tolerance="high", lump_sum=500, horizon_years=10))
+
+
+def test_rupees_use_indian_grouping():
+    from app.services.recommendation_engine import inr
+    assert [inr(n) for n in (500, 1_000, 99_999, 400_000, 12_345_678, -150_000)] == \
+        ["₹500", "₹1,000", "₹99,999", "₹4,00,000", "₹1,23,45,678", "-₹1,50,000"]

@@ -55,6 +55,16 @@ PORTFOLIO_NAMES = {
 }
 
 
+def inr(amount: float) -> str:
+    """Rupees with Indian digit grouping: 4,00,000 rather than 400,000."""
+    digits = f"{abs(round(amount)):d}"
+    head, tail = digits[:-3], digits[-3:]
+    while len(head) > 2:
+        tail = f"{head[-2:]},{tail}"
+        head = head[:-2]
+    return f"{'-' if amount < 0 else ''}₹{head + ',' if head else ''}{tail}"
+
+
 def pct(v: Optional[float], digits: int = 2) -> Optional[float]:
     return None if v is None else round(v * 100, digits)
 
@@ -109,7 +119,7 @@ class RecommendationEngine:
         budget = profile.get_budget()
         lump = float(profile.lump_sum or 0)
         if 0 < lump < MIN_LUMP_SUM:
-            raise ValueError(f"The minimum one-time amount is ₹{MIN_LUMP_SUM:,}.")
+            raise ValueError(f"The minimum one-time amount is {inr(MIN_LUMP_SUM)}.")
         # ELSS's 80C limit is yearly, so a one-time amount counts towards it like a year of SIPs.
         yearly_view = budget + lump / 12
         provisional_mix, provisional_slots = alloc.build_slots(
@@ -159,7 +169,7 @@ class RecommendationEngine:
 
         if lump and mix["equity"] * lump >= STP_THRESHOLD:
             warnings.append(f"Consider moving the equity part of your one-time amount (about "
-                            f"₹{mix['equity'] * lump:,.0f}) in over 6-12 months through an STP from a liquid fund, "
+                            f"{inr(mix['equity'] * lump)}) in over 6-12 months through an STP from a liquid fund, "
                             "so it doesn't all go in just before a fall.")
         warnings += self._suitability_warnings(profile, budget, limited_by)
         warnings += self._warnings(profile, horizon, funds, data)
@@ -243,8 +253,8 @@ class RecommendationEngine:
         if mix["debt"] > 0:
             out.append(f"The remaining {mix['debt']:.0%} is in debt funds for stability.")
         if any(abs(actual[k] - mix[k] * 100) >= 5 for k in mix):
-            amount = (f"a ₹{budget:,.0f} monthly SIP (each SIP must be at least ₹500)" if budget > 0
-                      else f"a ₹{lump:,.0f} one-time amount")
+            amount = (f"a {inr(budget)} monthly SIP (each SIP must be at least ₹500)" if budget > 0
+                      else f"a {inr(lump)} one-time amount")
             out.append(f"With {n_funds} fund{'s' if n_funds != 1 else ''} for {amount}, "
                        "some categories were combined, so the final mix "
                        "differs a little from this.")
@@ -419,7 +429,7 @@ class RecommendationEngine:
             surplus = income - (profile.monthly_expenses or 0) - emi
             if budget > max(surplus, 0):
                 out.append(f"This SIP is more than you have left each month after expenses and EMIs "
-                           f"(about ₹{max(surplus, 0):,.0f}). Make sure you can keep it going.")
+                           f"(about {inr(max(surplus, 0))}). Make sure you can keep it going.")
             if emi / income > 0.4:
                 out.append(f"Your EMIs take {emi / income:.0%} of your income. Prepaying costly loans "
                            "can be a better first step than investing.")
