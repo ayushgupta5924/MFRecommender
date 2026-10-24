@@ -4,8 +4,9 @@ import sys
 import tempfile
 from pathlib import Path
 
+# TEST_DATABASE_URL runs the suite against a real (empty, throwaway) Postgres instead of SQLite.
 _db = Path(tempfile.mkdtemp()) / "test.db"
-os.environ["DATABASE_URL"] = f"sqlite:///{_db.as_posix()}"
+os.environ["DATABASE_URL"] = os.getenv("TEST_DATABASE_URL") or f"sqlite:///{_db.as_posix()}"
 os.environ["AUTH_SECRET"] = "test-secret"
 os.environ["COOKIE_SECURE"] = "0"
 os.environ.pop("RESEND_API_KEY", None)

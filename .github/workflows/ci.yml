@@ -8,6 +8,17 @@ on:
 jobs:
   backend:
     runs-on: ubuntu-latest
+    # Production runs on Neon Postgres, so the suite also runs against a real Postgres.
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: tester
+          POSTGRES_PASSWORD: tester
+          POSTGRES_DB: mftest
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U tester" --health-interval 5s --health-timeout 5s --health-retries 10
     defaults:
       run:
         working-directory: backend
@@ -19,7 +30,12 @@ jobs:
           cache: pip
           cache-dependency-path: backend/requirements*.txt
       - run: pip install -r requirements.txt -r requirements-dev.txt
-      - run: python -m pytest -q tests
+      - name: Tests (SQLite)
+        run: python -m pytest -q tests
+      - name: Tests (Postgres)
+        run: python -m pytest -q tests
+        env:
+          TEST_DATABASE_URL: postgresql://tester:tester@localhost:5432/mftest
 
   frontend:
     runs-on: ubuntu-latest
