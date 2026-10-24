@@ -54,6 +54,7 @@ export const verifyCode = (email, code, purpose) => request("/api/auth/verify", 
 export const getMe = () => request("/api/auth/me");
 export const logout = () => request("/api/auth/logout", { method: "POST" });
 export const deleteAccount = () => request("/api/account", { method: "DELETE" });
+export const setAlerts = (enabled) => request("/api/account/alerts", { method: "PUT", json: { enabled } });
 
 // ── Portfolio review ──
 export const getReview = () => request("/api/review");

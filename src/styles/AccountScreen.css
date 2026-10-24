@@ -9,3 +9,6 @@
 .planRow__name { font-size: 15px; font-weight: 700; color: #222; margin-bottom: 2px; }
 .planRow__main:hover .planRow__name { color: #1565c0; }
 .dangerZone { margin-top: 32px; padding-top: 16px; border-top: 1px solid #e5e5e5; }
+.alertToggle { display: flex; gap: 12px; align-items: flex-start; cursor: pointer; font-size: 14px; color: #222; }
+.alertToggle input { width: 18px; height: 18px; margin-top: 2px; flex-shrink: 0; }
+.alertToggle span { display: flex; flex-direction: column; gap: 2px; }

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { deleteAccount, deletePlan, getPlan, listPlans } from "../api";
+import { deleteAccount, deletePlan, getPlan, listPlans, setAlerts } from "../api";
 import { useAuth } from "../auth";
 import "../styles/AccountScreen.css";
 import "../styles/ResultsScreen.css";
@@ -44,6 +44,15 @@ export default function AccountScreen() {
     }
   };
 
+  const toggleAlerts = async (enabled) => {
+    try {
+      const r = await setAlerts(enabled);
+      setUser({ ...user, alerts_enabled: r.alerts_enabled });
+    } catch (e) {
+      setError(e.message);
+    }
+  };
+
   const onLogout = async () => {
     await logout();
     navigate("/", { replace: true });
@@ -73,6 +82,14 @@ export default function AccountScreen() {
         <Link className="card accountLink" to="/review">
           <span>📊 Portfolio review</span><span className="accountLink__arrow">→</span>
         </Link>
+
+        <label className="card alertToggle">
+          <input type="checkbox" checked={user.alerts_enabled !== false} onChange={(e) => toggleAlerts(e.target.checked)} />
+          <span>
+            <b>Email me when a fund I hold changes rating</b>
+            <span className="mutedText">At most once a month, only when something changed.</span>
+          </span>
+        </label>
 
         <div className="sectionHeading">Saved plans</div>
         {error && <div className="errorText">{error}</div>}

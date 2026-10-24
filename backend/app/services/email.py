@@ -1,12 +1,13 @@
-"""Sends one-time login codes by email through Resend (https://resend.com).
+"""Sends email through Resend (https://resend.com): login codes and portfolio alerts.
 
 Set RESEND_API_KEY and EMAIL_FROM (an address on a domain verified in Resend,
 e.g. "MF Advisor <no-reply@yourdomain.in>"). For local development only,
-EMAIL_DEV_MODE=1 prints codes to the server log instead of sending them.
+EMAIL_DEV_MODE=1 logs emails instead of sending them.
 """
 import html
 import logging
 import os
+from typing import Dict, Optional
 
 import requests
 
@@ -20,7 +21,24 @@ class EmailNotConfigured(RuntimeError):
     pass
 
 
-def _body(code: str, purpose: str, minutes: int) -> str:
+def send_email(to: str, subject: str, html_body: str, text_body: str,
+               headers: Optional[Dict[str, str]] = None) -> None:
+    api_key, sender = os.getenv("RESEND_API_KEY"), os.getenv("EMAIL_FROM")
+    if not (api_key and sender):
+        if os.getenv("EMAIL_DEV_MODE") == "1":
+            logger.warning("EMAIL_DEV_MODE: email to %s: %s\n%s", to, subject, text_body)
+            return
+        raise EmailNotConfigured("Email sending is not set up yet.")
+    payload = {"from": sender, "to": [to], "subject": subject, "html": html_body, "text": text_body}
+    if headers:
+        payload["headers"] = headers
+    resp = requests.post(RESEND_URL, headers={"Authorization": f"Bearer {api_key}"}, json=payload, timeout=15)
+    if resp.status_code >= 300:
+        logger.error("Resend rejected the email (%s): %s", resp.status_code, resp.text[:300])
+        raise RuntimeError("Could not send the email.")
+
+
+def _otp_body(code: str, purpose: str, minutes: int) -> str:
     action = "finish creating your account" if purpose == "signup" else "log in"
     return f"""\
 <div style="font-family:-apple-system,Segoe UI,Roboto,sans-serif;max-width:420px;margin:auto;color:#222">
@@ -33,24 +51,5 @@ def _body(code: str, purpose: str, minutes: int) -> str:
 
 
 def send_otp(to: str, code: str, purpose: str, minutes: int) -> None:
-    api_key, sender = os.getenv("RESEND_API_KEY"), os.getenv("EMAIL_FROM")
-    if not (api_key and sender):
-        if os.getenv("EMAIL_DEV_MODE") == "1":
-            logger.warning("EMAIL_DEV_MODE: %s code for %s is %s", purpose, to, code)
-            return
-        raise EmailNotConfigured("Email sending is not set up yet.")
-    resp = requests.post(
-        RESEND_URL,
-        headers={"Authorization": f"Bearer {api_key}"},
-        json={
-            "from": sender,
-            "to": [to],
-            "subject": f"{code} is your {BRAND} code",
-            "html": _body(code, purpose, minutes),
-            "text": f"Your {BRAND} code is {code}. It expires in {minutes} minutes.",
-        },
-        timeout=15,
-    )
-    if resp.status_code >= 300:
-        logger.error("Resend rejected the email (%s): %s", resp.status_code, resp.text[:300])
-        raise RuntimeError("Could not send the email.")
+    send_email(to, f"{code} is your {BRAND} code", _otp_body(code, purpose, minutes),
+               f"Your {BRAND} code is {code}. It expires in {minutes} minutes.")

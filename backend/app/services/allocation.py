@@ -89,28 +89,31 @@ def _round_to(x: float, step: float) -> float:
     return round(x / step) * step
 
 
-def equity_limit(horizon: int, life_stage: LifeStage, goal: InvestmentGoal) -> Tuple[float, Optional[str]]:
-    """Most equity the plan may hold, and why, when a rule tighter than the long-horizon limit applies."""
+def equity_limit(horizon: int, life_stage: LifeStage,
+                 goal: InvestmentGoal) -> Tuple[float, Optional[str], Optional[str]]:
+    """Most equity the plan may hold, and why (in full and in a few words), when a rule tighter
+    than the long-horizon limit applies."""
     years = f"{horizon} year{'s' if horizon != 1 else ''}"
     if goal == InvestmentGoal.EMERGENCY_CORPUS:
-        return 0.0, "Emergency money must be available any day, so none of it goes into equity."
+        return 0.0, "Emergency money must be available any day, so none of it goes into equity.", "emergency money"
     if horizon < 3:
         return 0.0, (f"You need this money in {years}. Equity can fall sharply over short periods, "
-                     "so the plan holds none.")
+                     "so the plan holds none."), f"money needed in {years}"
     limits = []
     if horizon < 7:
         cap = 0.25 if horizon < 4 else 0.35 if horizon < 5 else 0.60
         limits.append((cap, f"Your goal is {years} away. A fall close to the date may not recover in time, "
-                            f"so equity is limited to {cap:.0%}."))
+                            f"so equity is limited to {cap:.0%}.", f"goal {years} away"))
     else:
-        limits.append((0.90, None))
+        limits.append((0.90, None, None))
     if life_stage in LIFE_STAGE_EQUITY_CAP:
         cap = LIFE_STAGE_EQUITY_CAP[life_stage]
         who = "you're retired" if life_stage == LifeStage.RETIRED else "you're close to retirement"
-        limits.append((cap, f"Because {who}, equity is limited to {cap:.0%} to protect what you've built."))
+        limits.append((cap, f"Because {who}, equity is limited to {cap:.0%} to protect what you've built.",
+                       "retired" if life_stage == LifeStage.RETIRED else "close to retirement"))
     if goal == InvestmentGoal.BUY_HOME and horizon <= 5:
         limits.append((0.30, "A down payment due within 5 years can't wait for markets to recover, "
-                             "so equity is limited to 30%."))
+                             "so equity is limited to 30%.", "home purchase within 5 years"))
     return min(limits, key=lambda x: x[0])
 
 
@@ -130,7 +133,7 @@ def target_equity(score: float, horizon: int, life_stage: LifeStage, goal: Inves
 def sleeve_mix(score: float, horizon: int, life_stage: LifeStage, goal: InvestmentGoal,
                fixed_deadline: bool = False) -> Dict[str, float]:
     """Fractions of the portfolio in equity / hybrid / debt (sum to 1)."""
-    cap, _ = equity_limit(horizon, life_stage, goal)
+    cap, _, _ = equity_limit(horizon, life_stage, goal)
     if cap == 0:
         return {"equity": 0.0, "hybrid": 0.0, "debt": 1.0}
     equity = min(target_equity(score, horizon, life_stage, goal, fixed_deadline), cap)

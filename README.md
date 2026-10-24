@@ -100,6 +100,9 @@ python -m scripts.build_rankings --cache-dir ../.cache/mf
     Changing it logs everyone out.
   - `RESEND_API_KEY` and `EMAIL_FROM` (e.g. `MF Advisor <no-reply@yourdomain.in>`, on a domain verified in Resend)
     for login codes. Without them sign-up and login reply "not available yet".
+  - `ALERTS_TOKEN` — a long random string; must match the `ALERTS_TOKEN` GitHub Actions secret used by
+    `portfolio-alerts.yml` (weekly). Without it portfolio alert emails don't run.
+  - `SITE_URL` (optional) — public site address used in email links; defaults to the Vercel URL.
   - `BRAND_NAME` (optional) — name used in login emails; defaults to "MF Advisor".
 
 The nightly data commit contains `[skip render]`, so it doesn't trigger a Render redeploy.

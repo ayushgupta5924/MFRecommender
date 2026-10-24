@@ -1,0 +1,34 @@
+name: Portfolio alerts
+
+# Weekly; the API itself only emails an investor when a rating changed and at most
+# once every 25 days, so a late, missed or repeated run is harmless.
+# Needs the ALERTS_TOKEN secret (Settings → Secrets and variables → Actions), set to
+# the same value as ALERTS_TOKEN on the Render backend.
+on:
+  schedule:
+    - cron: "30 3 * * 1"      # Mondays 09:00 IST, after the nightly rankings
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Count who would get an email without sending"
+        type: boolean
+        default: false
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Trigger alerts
+        env:
+          ALERTS_TOKEN: ${{ secrets.ALERTS_TOKEN }}
+          DRY_RUN: ${{ inputs.dry_run || false }}
+        run: |
+          if [ -z "$ALERTS_TOKEN" ]; then
+            echo "ALERTS_TOKEN secret is not set; skipping."
+            exit 0
+          fi
+          # The free backend may be asleep; give it time to wake.
+          curl -fsS --retry 3 --retry-delay 30 --max-time 300 -X POST \
+            -H "X-Alerts-Token: $ALERTS_TOKEN" \
+            "https://mf-recommender.vercel.app/api/internal/alerts/run?dry_run=$DRY_RUN"

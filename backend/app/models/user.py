@@ -153,6 +153,7 @@ class PortfolioRecommendation(BaseModel):
     total_invested:        float = 0
     asset_mix:             Dict[str, float] = {}
     mix_reasons:           List[str] = []           # plain-language "why this mix"
+    plan_note:             Optional[str] = None     # e.g. "Aggressive investor, cautious plan: goal 4 years away"
     projections:           Dict[str, Projection] = {}
     target_amount_today:   Optional[float] = None   # the target as entered, when given in today's rupees
     goal_status:           Optional[str] = None     # "on_track" | "shortfall"
