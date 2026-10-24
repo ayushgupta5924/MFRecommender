@@ -461,7 +461,7 @@ class Reviewer:
         big = [r for r in valued if (r["rating"].get("size_fit") or 1) < OVERSIZED_FIT]
         if big:
             out.append({"level": "medium", "key": "oversized",
-                        "title": f"{_plural(len(big), 'fund')} very large for its category",
+                        "title": f"{_plural(len(big), 'fund')} very large for {'its' if len(big) == 1 else 'their'} category",
                         "text": " ".join(r["rating"]["size_note"] for r in big[:2] if r["rating"].get("size_note"))
                                 + " Past returns were earned when the fund was smaller; consider a smaller, "
                                   "well-ranked fund in the same category for new money."})
@@ -472,7 +472,7 @@ class Reviewer:
                   and r["rating"]["metrics"]["ter"] - r["rating"]["category"]["ter"] >= COSTLY_GAP]
         if costly:
             out.append({"level": "low", "key": "costly",
-                        "title": f"{_plural(len(costly), 'fund')} with high costs for its category",
+                        "title": f"{_plural(len(costly), 'fund')} with high costs for {'its' if len(costly) == 1 else 'their'} category",
                         "text": "; ".join(f"{r['name']} charges {r['rating']['metrics']['ter']:.2f}% a year vs "
                                           f"{r['rating']['category']['ter']:.2f}% typical" for r in costly[:3])
                                 + ". Costs are taken every year whatever the fund returns."})
