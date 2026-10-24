@@ -89,7 +89,8 @@ def _round_to(x: float, step: float) -> float:
     return round(x / step) * step
 
 
-def sleeve_mix(score: float, horizon: int, life_stage: LifeStage, goal: InvestmentGoal) -> Dict[str, float]:
+def sleeve_mix(score: float, horizon: int, life_stage: LifeStage, goal: InvestmentGoal,
+               fixed_deadline: bool = False) -> Dict[str, float]:
     """Fractions of the portfolio in equity / hybrid / debt (sum to 1)."""
     if goal == InvestmentGoal.EMERGENCY_CORPUS or horizon < 3:
         return {"equity": 0.0, "hybrid": 0.0, "debt": 1.0}
@@ -98,6 +99,9 @@ def sleeve_mix(score: float, horizon: int, life_stage: LifeStage, goal: Investme
     equity = 0.15 + 0.70 * s + LIFE_STAGE_TILT[life_stage] + GOAL_TILT[goal]
     # Longer horizons can carry a little more equity, shorter ones less.
     equity += max(-0.10, min(0.10, (horizon - 7) * 0.02))
+    # A date that can't move leaves no time to wait out a fall near the end.
+    if fixed_deadline and horizon < 10:
+        equity -= 0.05
 
     if horizon < 4:
         cap = 0.25
@@ -162,9 +166,10 @@ def debt_split(horizon: int, goal: InvestmentGoal) -> Dict[str, float]:
 
 
 def build_slots(score: float, horizon: int, life_stage: LifeStage, goal: InvestmentGoal,
-                budget: float, tax_regime: Optional[TaxRegime]) -> Tuple[Dict[str, float], Dict[str, float]]:
+                budget: float, tax_regime: Optional[TaxRegime],
+                fixed_deadline: bool = False) -> Tuple[Dict[str, float], Dict[str, float]]:
     """Return (sleeve mix, bucket -> fraction of portfolio)."""
-    mix = sleeve_mix(score, horizon, life_stage, goal)
+    mix = sleeve_mix(score, horizon, life_stage, goal, fixed_deadline)
     slots: Dict[str, float] = {}
 
     if mix["equity"] > 0:
