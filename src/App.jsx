@@ -1,4 +1,6 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { warmUp } from "./api";
+import Footer from "./components/Footer";
 import InfoScreen from "./components/InfoScreen";
 import InputScreen from "./components/InputScreen";
 import ResultsScreen from "./components/ResultsScreen";
@@ -6,11 +8,14 @@ import ResultsScreen from "./components/ResultsScreen";
 export default function App() {
   const [screen, setScreen] = useState("info");
   const [results, setResults] = useState(null);
-  const [budget, setBudget] = useState(0);
 
-  const handleResults = (data, b) => {
+  // Wake the backend while the user reads the intro.
+  useEffect(() => { warmUp(); }, []);
+
+  useEffect(() => { window.scrollTo(0, 0); }, [screen]);
+
+  const handleResults = (data) => {
     setResults(data);
-    setBudget(data?.monthly_sip_required || b || 0);
     setScreen("results");
   };
 
@@ -19,19 +24,20 @@ export default function App() {
       {screen === "info" && (
         <InfoScreen onNext={() => setScreen("input")} />
       )}
-      {screen === "input" && (
+      {/* Kept mounted so answers survive "Adjust Profile". */}
+      <div hidden={screen !== "input"}>
         <InputScreen
           onBack={() => setScreen("info")}
           onResults={handleResults}
         />
-      )}
-      {screen === "results" && (
+      </div>
+      {screen === "results" && results && (
         <ResultsScreen
           onBack={() => setScreen("input")}
           results={results}
-          budget={budget}
         />
       )}
+      <Footer />
     </>
   );
 }

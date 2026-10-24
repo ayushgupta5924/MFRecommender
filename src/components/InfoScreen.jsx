@@ -12,7 +12,7 @@ export default function InfoScreen({ onNext }) {
       <div className="infoHero">
         <div className="infoHero__icon">💼</div>
         <div className="infoHero__title">MF Advisor</div>
-        <div className="infoHero__subtitle">Discover mutual funds based on your investor profile</div>
+        <div className="infoHero__subtitle">A mutual fund plan built from your goals, risk profile and real fund data</div>
         <button className="btnWhite" onClick={onNext}>🚀 Get Started →</button>
       </div>
 
@@ -20,7 +20,7 @@ export default function InfoScreen({ onNext }) {
         <Disclaimer />
 
         <div className="sectionTitle">How It Works</div>
-        <div className="sectionSubtitle">We analyze 4 key factors to match funds to your profile:</div>
+        <div className="sectionSubtitle">We combine 4 factors about you with performance data for every fund in India:</div>
 
         <div className="factorGrid">
           {FACTORS.map((f) => (
@@ -35,14 +35,14 @@ export default function InfoScreen({ onNext }) {
         </div>
 
         <div className="expansionBox">
-          <div className="expansionHeader" onClick={() => setExpanded(!expanded)}>
+          <button type="button" className="expansionHeader" aria-expanded={expanded} onClick={() => setExpanded(!expanded)}>
             <span className="expansionHeader__icon">🧠</span>
             <div style={{ flex: 1 }}>
               <div className="expansionHeader__title">Our Selection Strategy</div>
-              <div className="expansionHeader__subtitle">Click to learn how we choose funds</div>
+              <div className="expansionHeader__subtitle">How we build your plan and choose funds</div>
             </div>
             <span className={`expansionChevron ${expanded ? "expansionChevron--open" : ""}`}>▼</span>
-          </div>
+          </button>
           {expanded && (
             <div className="expansionBody">
               {STRATEGIES.map((s) => (
@@ -64,7 +64,7 @@ export default function InfoScreen({ onNext }) {
               ))}
               <div className="amberNotice">
                 <span>✨</span>
-                <span className="amberNotice__text">All fund data uses real-time NAV and historical performance metrics.</span>
+                <span className="amberNotice__text">Rankings are rebuilt every night from AMFI's official NAV data.</span>
               </div>
             </div>
           )}
@@ -73,8 +73,8 @@ export default function InfoScreen({ onNext }) {
         <div className="realtimeBox">
           <span className="realtimeBox__icon">🛡️</span>
           <div>
-            <div className="realtimeBox__title">Real-time Data</div>
-            <div className="realtimeBox__subtitle">Live NAV & verified historical returns</div>
+            <div className="realtimeBox__title">Updated Daily</div>
+            <div className="realtimeBox__subtitle">Every Direct-Growth fund in India, re-ranked each night</div>
           </div>
         </div>
       </div>

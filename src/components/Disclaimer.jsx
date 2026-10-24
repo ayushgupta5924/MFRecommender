@@ -1,3 +1,4 @@
+import { COMPLIANCE } from "../constants/compliance";
 import "../styles/Disclaimer.css";
 
 export default function Disclaimer() {
@@ -7,10 +8,15 @@ export default function Disclaimer() {
       <div className="disclaimer__content">
         <div className="disclaimer__title">Important Disclaimer</div>
         <p className="disclaimer__text">
-          This tool is for <strong>educational and informational purposes only</strong>.
-          It does not constitute investment advice. Mutual fund investments are subject
-          to market risks. Please read all scheme-related documents carefully and consult
-          a SEBI-registered investment adviser before investing.
+          Mutual fund investments are subject to market risks; read all scheme-related documents carefully before
+          investing. <strong>Past performance does not guarantee future returns</strong>, and projections are
+          estimates, not promises. Suggestions are based only on the information you provide and on publicly
+          available NAV data.
+        </p>
+        <p className="disclaimer__text">
+          {COMPLIANCE.legalEntity} is a {COMPLIANCE.registrationType} (Reg. No. {COMPLIANCE.registrationNumber}).
+          Registration granted by SEBI, membership of BASL and certification from NISM in no way guarantee
+          performance of the intermediary or provide any assurance of returns to investors.
         </p>
       </div>
     </div>

@@ -1,5 +1,7 @@
 import { useState } from "react";
 import { getPortfolio } from "../api";
+import { RISK_QUESTIONS, scoreRisk } from "../constants/riskQuestions";
+import { fmt, requiredSip, sipFutureValue } from "../utils/format";
 import "../styles/InputScreen.css";
 import "../styles/shared.css";
 
@@ -14,81 +16,73 @@ const LIFE_STAGES = [
 ];
 
 const GOALS = [
-  { value: "financial_freedom", emoji: "🏖️", label: "Financial Freedom",   desc: "Achieve financial independence" },
-  { value: "buy_home",          emoji: "🏠", label: "Buy a Home",           desc: "Save for down payment" },
-  { value: "child_education",   emoji: "🎓", label: "Child's Education",    desc: "Build education corpus" },
-  { value: "retirement",        emoji: "💼", label: "Retirement Corpus",    desc: "Long-term retirement fund" },
-  { value: "tax_saving",        emoji: "🛡️", label: "Tax Saving",           desc: "Save tax under Section 80C" },
-  { value: "emergency_corpus",  emoji: "⚡", label: "Emergency Corpus",     desc: "3–6 months safety net" },
-  { value: "wealth_creation",   emoji: "📈", label: "Wealth Creation",      desc: "Grow money aggressively" },
+  { value: "financial_freedom", emoji: "🏖️", label: "Financial Freedom",   desc: "Achieve financial independence", years: 15 },
+  { value: "buy_home",          emoji: "🏠", label: "Buy a Home",           desc: "Save for down payment",          years: 5 },
+  { value: "child_education",   emoji: "🎓", label: "Child's Education",    desc: "Build education corpus",         years: 12 },
+  { value: "retirement",        emoji: "💼", label: "Retirement Corpus",    desc: "Long-term retirement fund",      years: 20 },
+  { value: "tax_saving",        emoji: "🛡️", label: "Tax Saving",           desc: "Save tax under Section 80C",     years: 5 },
+  { value: "emergency_corpus",  emoji: "⚡", label: "Emergency Corpus",     desc: "3–6 months safety net",          years: 1 },
+  { value: "wealth_creation",   emoji: "📈", label: "Wealth Creation",      desc: "Grow money over the long term",  years: 10 },
 ];
 
-const RISK_OPTIONS = [
-  { value: "low",      emoji: "🛡️", label: "Low",      desc: "I prefer safety over returns",         color: "#388e3c", bg: "rgba(56,142,60,0.08)" },
-  { value: "moderate", emoji: "⚖️", label: "Moderate", desc: "Balance between safety and growth",    color: "#f57c00", bg: "rgba(245,124,0,0.08)" },
-  { value: "high",     emoji: "📈", label: "High",     desc: "I can handle market ups and downs",    color: "#d32f2f", bg: "rgba(211,47,47,0.08)" },
-];
+const RISK_COLORS = { Conservative: "#388e3c", Moderate: "#f57c00", Aggressive: "#d32f2f" };
 
-const EXPECTED_RETURNS = { low: 0.07, moderate: 0.10, high: 0.13 };
-
-function calcSIP(target, years, annualRate) {
-  if (!target || !years || !annualRate) return 0;
-  const r = annualRate / 12;
-  const n = years * 12;
-  return Math.round(target * r / (Math.pow(1 + r, n) - 1));
-}
-
-function calcFV(monthlySip, years, annualRate) {
-  if (!monthlySip || !years || !annualRate) return 0;
-  const r = annualRate / 12;
-  const n = years * 12;
-  return Math.round(monthlySip * (Math.pow(1 + r, n) - 1) / r * (1 + r));
-}
-
-function fmt(n) {
-  if (!n) return "—";
-  if (n >= 10000000) return "₹" + (n / 10000000).toFixed(1) + " Cr";
-  if (n >= 100000)   return "₹" + (n / 100000).toFixed(1) + " L";
-  return "₹" + Math.round(n).toLocaleString("en-IN");
-}
+// Rough rates for the live preview only; the final plan uses each fund category's history.
+const INDICATIVE_RETURN = { Conservative: 0.075, Moderate: 0.095, Aggressive: 0.11 };
 
 export default function InputScreen({ onBack, onResults }) {
   const [step, setStep]             = useState(1);
   const [lifeStage, setLifeStage]   = useState("");
   const [goal, setGoal]             = useState("");
-  const [risk, setRisk]             = useState("");
+  const [answers, setAnswers]       = useState({});
   const [budget, setBudget]         = useState("");
   const [targetAmount, setTarget]   = useState("");
-  const [targetYears, setYears]     = useState("");
+  const [years, setYears]           = useState("");
+  const [taxRegime, setTaxRegime]   = useState("old");
+  const [consent, setConsent]       = useState(false);
   const [loading, setLoading]       = useState(false);
   const [error, setError]           = useState("");
 
-  const annualRate = EXPECTED_RETURNS[risk] || 0.10;
-  const sipNeeded  = targetAmount && targetYears ? calcSIP(parseFloat(targetAmount), parseInt(targetYears), annualRate) : null;
-  const fvOfBudget = budget && targetYears ? calcFV(parseFloat(budget), parseInt(targetYears), annualRate) : null;
+  const risk = scoreRisk(answers);
+  const goalInfo = GOALS.find((g) => g.value === goal);
+  const horizon = parseInt(years) || 0;
+  const rate = INDICATIVE_RETURN[risk?.label] || 0.09;
+  const sipNeeded = targetAmount && horizon ? Math.ceil(requiredSip(parseFloat(targetAmount), horizon, rate) / 100) * 100 : null;
+  const fvOfBudget = budget && horizon ? sipFutureValue(parseFloat(budget), horizon, rate) : null;
+  const budgetValue = parseFloat(budget) || 0;
 
+  const amountValid = budgetValue >= 500 || (sipNeeded && sipNeeded > 0);
+  const horizonValid = horizon >= 1 && horizon <= 40;
   const canProceed = {
     1: !!lifeStage,
     2: !!goal,
     3: !!risk,
-    4: !!(budget || (targetAmount && targetYears)),
+    4: amountValid && horizonValid && consent && !(budget && budgetValue < 500),
+  };
+
+  const chooseGoal = (g) => {
+    setGoal(g.value);
+    if (!years) setYears(String(g.years));
   };
 
   const handleSubmit = async () => {
     setError(""); setLoading(true);
     try {
       const payload = {
-        monthly_budget:  parseFloat(budget) || (sipNeeded || 1000),
         life_stage:      lifeStage,
         goal:            goal,
-        risk_tolerance:  risk,
+        risk_tolerance:  risk.tolerance,
+        risk_score:      risk.score,
+        monthly_budget:  budgetValue || null,
         target_amount:   targetAmount ? parseFloat(targetAmount) : null,
-        target_years:    targetYears  ? parseInt(targetYears)    : null,
+        target_years:    targetAmount ? horizon : null,
+        horizon_years:   horizon,
+        tax_regime:      goal === "tax_saving" ? taxRegime : null,
       };
       const data = await getPortfolio(payload);
-      onResults(data, parseFloat(budget) || sipNeeded);
+      onResults(data);
     } catch (e) {
-      setError("Error: " + e.message);
+      setError(e.message);
     } finally {
       setLoading(false);
     }
@@ -97,12 +91,11 @@ export default function InputScreen({ onBack, onResults }) {
   return (
     <div className="page">
       <div className="appBar">
-        <button className="backBtn" onClick={step === 1 ? onBack : () => setStep(s => s - 1)}>←</button>
+        <button className="backBtn" aria-label="Back" onClick={step === 1 ? onBack : () => setStep(s => s - 1)}>←</button>
         <span className="appBar__title">Your Investor Profile</span>
         <span className="stepBadge">Step {step} of 4</span>
       </div>
 
-      {/* Progress bar */}
       <div className="progressBar">
         <div className="progressBar__fill" style={{ width: `${(step / 4) * 100}%` }} />
       </div>
@@ -116,13 +109,13 @@ export default function InputScreen({ onBack, onResults }) {
             <div className="stepSubtitle">This helps us understand your financial priorities</div>
             <div className="stageGrid">
               {LIFE_STAGES.map((s) => (
-                <div key={s.value}
+                <button type="button" key={s.value}
                   onClick={() => setLifeStage(s.value)}
                   className={`stageCard ${lifeStage === s.value ? "stageCard--selected" : ""}`}>
                   <div className="stageCard__emoji">{s.emoji}</div>
                   <div className="stageCard__label">{s.label}</div>
                   <div className="stageCard__desc">{s.desc}</div>
-                </div>
+                </button>
               ))}
             </div>
           </div>
@@ -135,114 +128,145 @@ export default function InputScreen({ onBack, onResults }) {
             <div className="stepSubtitle">We'll build a portfolio specifically for this</div>
             <div className="goalGrid">
               {GOALS.map((g) => (
-                <div key={g.value}
-                  onClick={() => setGoal(g.value)}
+                <button type="button" key={g.value}
+                  onClick={() => chooseGoal(g)}
                   className={`goalCard ${goal === g.value ? "goalCard--selected" : ""}`}>
                   <div className="goalCard__emoji">{g.emoji}</div>
                   <div className="goalCard__label">{g.label}</div>
                   <div className="goalCard__desc">{g.desc}</div>
-                </div>
+                </button>
               ))}
             </div>
           </div>
         )}
 
-        {/* ── Step 3: Risk ── */}
+        {/* ── Step 3: Risk profile ── */}
         {step === 3 && (
           <div>
-            <div className="stepTitle">What's your risk appetite?</div>
-            <div className="stepSubtitle">Be honest — this determines your fund mix</div>
-            {RISK_OPTIONS.map((r) => {
-              const sel = risk === r.value;
-              return (
-                <div key={r.value} onClick={() => setRisk(r.value)}
-                  className={`riskOption ${sel ? "riskOption--selected" : ""}`}
-                  style={sel ? { borderColor: r.color, background: r.bg } : {}}>
-                  <div className="riskIcon" style={sel ? { background: r.color } : {}}>{r.emoji}</div>
-                  <div style={{ flex: 1 }}>
-                    <div className="riskLabel" style={sel ? { color: r.color } : {}}>{r.label}</div>
-                    <div className="riskDesc">{r.desc}</div>
-                  </div>
-                  <span style={{ fontSize: 22, color: sel ? r.color : "#ccc" }}>{sel ? "✅" : "⭕"}</span>
+            <div className="stepTitle">Your risk profile</div>
+            <div className="stepSubtitle">Answer honestly — this decides how much of your money goes into equity</div>
+            {RISK_QUESTIONS.map((q, qi) => (
+              <div key={q.id} className="card quizCard">
+                <div className="quizQuestion">{qi + 1}. {q.question}</div>
+                <div className="quizOptions">
+                  {q.options.map((o, oi) => (
+                    <button type="button" key={o.label}
+                      className={`quizOption ${answers[q.id] === oi ? "quizOption--selected" : ""}`}
+                      onClick={() => setAnswers((a) => ({ ...a, [q.id]: oi }))}>
+                      {o.label}
+                    </button>
+                  ))}
                 </div>
-              );
-            })}
+              </div>
+            ))}
+            {risk && (
+              <div className="riskResult" style={{ borderColor: RISK_COLORS[risk.label] }}>
+                <div className="riskResult__label">Your risk profile</div>
+                <div className="riskResult__value" style={{ color: RISK_COLORS[risk.label] }}>
+                  {risk.label} <span className="riskResult__score">({risk.score}/100)</span>
+                </div>
+              </div>
+            )}
           </div>
         )}
 
-        {/* ── Step 4: SIP Calculator ── */}
+        {/* ── Step 4: Amount & horizon ── */}
         {step === 4 && (
           <div>
             <div className="stepTitle">Let's do the math</div>
-            <div className="stepSubtitle">Tell us your target — we'll calculate what you need</div>
+            <div className="stepSubtitle">How long will you invest, and how much?</div>
 
-            {/* Goal-based calculator */}
             <div className="card">
-              <div className="card__title">🎯 Goal-based calculator</div>
-              <div className="fieldWrap">
-                <label className="fieldLabel">I want to accumulate (₹)</label>
-                <div style={{ position: "relative" }}>
-                  <span className="fieldIcon">₹</span>
-                  <input type="number" value={targetAmount} onChange={e => setTarget(e.target.value)}
-                    placeholder="e.g. 5000000 (50 lakhs)" className="fieldInput" />
-                </div>
-              </div>
-              <div className="fieldWrap">
-                <label className="fieldLabel">In how many years?</label>
+              <div className="fieldWrap" style={{ marginBottom: 0 }}>
+                <label className="fieldLabel" htmlFor="years">Investment horizon (years)</label>
                 <div style={{ position: "relative" }}>
                   <span className="fieldIcon">📅</span>
-                  <input type="number" value={targetYears} onChange={e => setYears(e.target.value)}
-                    placeholder="e.g. 10" className="fieldInput" />
+                  <input id="years" type="number" min="1" max="40" value={years} onChange={e => setYears(e.target.value)}
+                    placeholder={`e.g. ${goalInfo?.years || 10}`} className="fieldInput" />
+                </div>
+                {years && !horizonValid && <div className="fieldHint fieldHint--error">Enter between 1 and 40 years.</div>}
+              </div>
+            </div>
+
+            <div className="card">
+              <div className="card__title">💰 I'll invest this monthly</div>
+              <div className="fieldWrap" style={{ marginBottom: 0 }}>
+                <label className="fieldLabel" htmlFor="budget">Monthly SIP (₹)</label>
+                <div style={{ position: "relative" }}>
+                  <span className="fieldIcon">₹</span>
+                  <input id="budget" type="number" min="500" value={budget} onChange={e => setBudget(e.target.value)}
+                    placeholder="e.g. 10000" className="fieldInput" />
+                </div>
+                {budget && budgetValue < 500 && <div className="fieldHint fieldHint--error">The minimum SIP is ₹500.</div>}
+              </div>
+              {fvOfBudget > 0 && (
+                <div className="sipResult">
+                  <div className="sipResult__label">Rough estimate in {horizon} years</div>
+                  <div className="sipResult__amount">{fmt(fvOfBudget)}</div>
+                  <div className="sipResult__note">At about {(rate * 100).toFixed(1)}% a year. Your plan will show a range based on real fund data.</div>
+                </div>
+              )}
+            </div>
+
+            <div className="orDivider"><span>and / or</span></div>
+
+            <div className="card">
+              <div className="card__title">🎯 I want to reach a target</div>
+              <div className="fieldWrap" style={{ marginBottom: 0 }}>
+                <label className="fieldLabel" htmlFor="target">Target amount (₹)</label>
+                <div style={{ position: "relative" }}>
+                  <span className="fieldIcon">₹</span>
+                  <input id="target" type="number" min="0" value={targetAmount} onChange={e => setTarget(e.target.value)}
+                    placeholder="e.g. 5000000 (50 lakhs)" className="fieldInput" />
                 </div>
               </div>
               {sipNeeded > 0 && (
                 <div className="sipResult">
-                  <div className="sipResult__label">Monthly SIP required</div>
+                  <div className="sipResult__label">Approximate monthly SIP needed</div>
                   <div className="sipResult__amount">{fmt(sipNeeded)}<span className="sipResult__month">/month</span></div>
                   <div className="sipResult__note">
-                    At {(annualRate * 100).toFixed(0)}% expected annual return ({risk} risk)
+                    {budgetValue >= 500
+                      ? (budgetValue >= sipNeeded ? "Your monthly amount looks enough for this target." : "Your monthly amount may fall short; your plan will show the gap.")
+                      : "We'll use this as your monthly amount."}
                   </div>
                 </div>
               )}
             </div>
 
-            <div className="orDivider"><span>or</span></div>
-
-            {/* Monthly budget */}
-            <div className="card">
-              <div className="card__title">💰 I'll invest this monthly</div>
-              <div className="fieldWrap" style={{ marginBottom: 0 }}>
-                <label className="fieldLabel">Monthly investment (₹)</label>
-                <div style={{ position: "relative" }}>
-                  <span className="fieldIcon">₹</span>
-                  <input type="number" value={budget} onChange={e => setBudget(e.target.value)}
-                    placeholder="e.g. 10000" className="fieldInput" />
+            {goal === "tax_saving" && (
+              <div className="card">
+                <div className="card__title">🧾 Which tax regime do you file under?</div>
+                <div className="quizOptions">
+                  {[["old", "Old regime (80C deductions)"], ["new", "New regime"]].map(([v, l]) => (
+                    <button type="button" key={v} className={`quizOption ${taxRegime === v ? "quizOption--selected" : ""}`}
+                      onClick={() => setTaxRegime(v)}>{l}</button>
+                  ))}
                 </div>
+                {taxRegime === "new" && <div className="fieldHint">ELSS gives no deduction under the new regime, so we'll use regular equity funds.</div>}
               </div>
-              {fvOfBudget > 0 && (
-                <div className="sipResult">
-                  <div className="sipResult__label">Estimated corpus in {targetYears || "—"} years</div>
-                  <div className="sipResult__amount">{fmt(fvOfBudget)}</div>
-                  <div className="sipResult__note">
-                    At {(annualRate * 100).toFixed(0)}% expected annual return ({risk} risk)
-                  </div>
-                </div>
-              )}
-            </div>
+            )}
+
+            <label className="consentRow">
+              <input type="checkbox" checked={consent} onChange={(e) => setConsent(e.target.checked)} />
+              <span>
+                I confirm the information above is accurate and understand that mutual fund investments are subject to
+                market risks and past performance does not guarantee future returns.
+              </span>
+            </label>
           </div>
         )}
 
-        {/* Nav buttons */}
         <div className="stepNav">
           {step < 4 ? (
             <button className="btnBlue" onClick={() => setStep(s => s + 1)} disabled={!canProceed[step]}>
               Continue →
             </button>
           ) : (
-            <button className="btnBlue" onClick={handleSubmit} disabled={loading || (!budget && !sipNeeded)}>
+            <button className="btnBlue" onClick={handleSubmit} disabled={loading || !canProceed[4]}>
               {loading ? "Building your portfolio…" : "✨ Get My Portfolio"}
             </button>
           )}
+          {loading && <div className="fieldHint" style={{ textAlign: "center" }}>If the server has been idle it can take up to a minute to wake up.</div>}
           {error && <div className="errorText">{error}</div>}
         </div>
 
