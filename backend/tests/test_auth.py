@@ -100,13 +100,17 @@ def test_accounts_stay_off_until_production_settings_exist(monkeypatch):
     client = TestClient(app)
     assert client.get("/api/health").json()["accounts_enabled"] is True
     monkeypatch.delenv("EMAIL_DEV_MODE")
+    monkeypatch.setattr(auth, "DATABASE_URL", "sqlite:///./local.db")   # as on Render before Neon is set
     assert client.get("/api/health").json()["accounts_enabled"] is False
     r = client.post("/api/auth/signup/start", json={"full_name": "No Mail", "email": "nomail@example.com"})
     assert r.status_code == 503
-    # Email alone isn't enough while the database is still a local SQLite file.
+    # Email alone isn't enough while the database is still a local SQLite file...
     monkeypatch.setenv("RESEND_API_KEY", "x")
     monkeypatch.setenv("EMAIL_FROM", "a@b.in")
     assert client.get("/api/health").json()["accounts_enabled"] is False
+    # ...but with Postgres, email and a secret, accounts switch on.
+    monkeypatch.setattr(auth, "DATABASE_URL", "postgresql+psycopg://u@h/db")
+    assert client.get("/api/health").json()["accounts_enabled"] is True
 
 
 def test_saved_plans_and_account_deletion():

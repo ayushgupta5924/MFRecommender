@@ -93,8 +93,9 @@ python -m scripts.build_rankings --cache-dir ../.cache/mf
   - `RANKINGS_URL=https://raw.githubusercontent.com/<owner>/<repo>/main/backend/app/data/rankings.json`
     (the API pulls the nightly file every 6 hours without a redeploy)
   - `ALLOWED_ORIGINS=https://<your-vercel-domain>` (comma-separated; defaults to `*`)
-  - `DATABASE_URL` — Postgres connection string (e.g. from Neon). **Required**: without it accounts live in a
-    SQLite file that Render wipes on every deploy.
+  - `DATABASE_URL` — the Neon connection string for the **production** branch (pooled or direct both work).
+    **Required for accounts**: until it's set, login, review and saving stay hidden, because a SQLite file on
+    Render would be wiped on every deploy.
   - `AUTH_SECRET` — a long random string (e.g. `python -c "import secrets; print(secrets.token_hex(32))"`).
     Changing it logs everyone out.
   - `RESEND_API_KEY` and `EMAIL_FROM` (e.g. `MF Advisor <no-reply@yourdomain.in>`, on a domain verified in Resend)
@@ -107,6 +108,16 @@ The nightly data commit contains `[skip render]`, so it doesn't trigger a Render
 - `refresh-rankings.yml`: nightly rankings rebuild. Needs **Settings → Actions → General → Workflow permissions →
   Read and write**. Can also be run manually from the Actions tab.
 - `ci.yml`: backend tests, frontend lint and build on every push and PR.
+
+### Database (Neon Postgres)
+- Schema changes are Alembic migrations in `backend/migrations/versions`, applied automatically when the API
+  starts. After changing `backend/app/db/tables.py`, run `alembic revision --autogenerate -m "..."` in `backend/`,
+  read the generated file, and commit it. A test fails if the tables and migrations ever disagree.
+- Use the `production` branch only for the live site. For local testing against Postgres, create a separate Neon
+  branch (e.g. `dev`) and use its connection string, so tests never touch real accounts.
+- CI runs the backend tests on both SQLite and Postgres 16. Locally:
+  `TEST_DATABASE_URL=postgresql://... python -m pytest -q tests` (use an empty, throwaway database).
+- Expired login codes and sessions are cleared on every startup.
 
 ## API
 
@@ -161,5 +172,3 @@ stored only as HMACs. Users can delete their portfolio or their whole account fr
 - mfapi.in is a free community API; if it is down, the nightly job fails safely and keeps the previous rankings.
 - Review ratings cover the categories the planner ranks. Sector/theme, international, gold and some debt categories
   are shown but not rated. Overlap is judged by category, not stock-level holdings (not in free data).
-- Database tables are created on startup (`Base.metadata.create_all`); there are no migrations yet, so a change
-  to an existing table needs a manual `ALTER TABLE` or a migration tool.

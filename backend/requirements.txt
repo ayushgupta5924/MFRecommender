@@ -7,3 +7,4 @@ python-multipart==0.0.20
 sqlalchemy==2.0.36
 psycopg[binary]==3.2.3
 casparser==1.4.1
+alembic==1.14.0
