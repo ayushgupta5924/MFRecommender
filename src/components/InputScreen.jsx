@@ -7,7 +7,7 @@ import {
 } from "../constants/riskQuestions";
 import { fmt, requiredSip, sipFutureValue } from "../utils/format";
 import { profileChecks } from "../utils/profileChecks";
-import { LAST_PLAN_KEY, save, usePersistentState } from "../utils/storage";
+import { LAST_PLAN_KEY, clearPlanData, save, usePersistentState } from "../utils/storage";
 import AppBar from "./AppBar";
 import "../styles/InputScreen.css";
 import "../styles/shared.css";
@@ -508,6 +508,14 @@ export default function InputScreen() {
           )}
           {loading && <div className="fieldHint" style={{ textAlign: "center" }}>If the server has been idle it can take up to a minute to wake up.</div>}
           {error && <div className="errorText">{error}</div>}
+          <button type="button" className="linkBtn clearAnswers" onClick={() => {
+            if (!window.confirm("Clear all your answers from this browser?")) return;
+            clearPlanData();
+            window.location.reload();
+          }}>
+            Clear my answers
+          </button>
+          <div className="mutedText clearAnswersNote">Your answers are kept in this browser so a refresh doesn't lose them.</div>
         </div>
 
       </div>

@@ -1,5 +1,4 @@
 import math
-import urllib.parse
 from datetime import date
 from typing import Dict, List, Optional, Set
 
@@ -20,6 +19,10 @@ SCENARIO_SHIFT = {
     "expected":    {"equity": 0.0,   "hybrid": 0.0,    "debt": 0.0},
     "optimistic":  {"equity": +0.03, "hybrid": +0.02,  "debt": +0.0075},
 }
+# Where to invest: MF Central is run by the registrars (CAMS and KFintech) and offers every fund house's Direct
+# plans. Linking there rather than a distributor keeps advice and distribution separate, as SEBI requires.
+INVEST_URL = "https://www.mfcentral.com/"
+
 MIN_LUMP_SUM = 1_000                  # common minimum for a one-time purchase
 LUMP_SUM_FUNDS_DIVISOR = 20           # a one-time amount supports about as many funds as a SIP 1/20th its size
 STP_THRESHOLD = 100_000               # suggest phasing in equity above this much
@@ -208,6 +211,12 @@ class RecommendationEngine:
         )
 
     @staticmethod
+    def _isin(code: str) -> Optional[str]:
+        from app.services.rankings_store import scheme_map
+        isins = scheme_map.schemes().get(code, {}).get("isins") or []
+        return isins[0] if isins else None
+
+    @staticmethod
     def _plan_note(profile: UserProfile, score: float, label: str, horizon: int, fixed: bool) -> Optional[str]:
         """When a safety rule holds equity well below what the risk profile points to, say so up front,
         so an Aggressive label next to a debt-heavy plan doesn't look like a mistake."""
@@ -347,7 +356,8 @@ class RecommendationEngine:
             monthly_sip_amount=float(amount),
             reason=self._reason(bucket, f, rank, rank_of, stats, scoring_profile, profile, horizon,
                                 self._seasoned_note(bucket_key, rank_of, data)),
-            investment_url=f"https://groww.in/search?q={urllib.parse.quote(f['name'] + ' Direct Growth')}",
+            investment_url=INVEST_URL,
+            isin=self._isin(f["code"]),
             amc=f["amc"],
             bucket=bucket_key,
             sebi_category=f.get("category", ""),

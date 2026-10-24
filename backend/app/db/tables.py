@@ -6,7 +6,7 @@ ever stored. Holdings are kept so a review can be re-run against fresh data.
 from datetime import datetime, timezone
 from typing import Optional
 
-from sqlalchemy import JSON, Boolean, DateTime, ForeignKey, Integer, String, Text, true
+from sqlalchemy import JSON, Boolean, DateTime, ForeignKey, Integer, String, Text, false
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db import Base
@@ -24,8 +24,11 @@ class User(Base):
     full_name: Mapped[str] = mapped_column(String(120))
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
     last_login_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
-    # Email when a held fund's rating changes. On by default; one click in any alert turns it off.
-    alerts_enabled: Mapped[bool] = mapped_column(Boolean, default=True, server_default=true())
+    # Email when a held fund's rating changes. Off until the investor opts in; one click in any alert turns it off.
+    alerts_enabled: Mapped[bool] = mapped_column(Boolean, default=False, server_default=false())
+    # Consent to the privacy notice at sign-up: when, and which version of the notice.
+    consented_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    consent_version: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
 
 
 class OtpCode(Base):
@@ -63,6 +66,9 @@ class Portfolio(Base):
     # Ratings ({scheme code: status}) as of the last alert, so the next one reports only what changed.
     alert_snapshot: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
     alerted_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    # Consent to storing holdings and transactions, given with the latest import.
+    consented_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    consent_version: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
 
 
 class SavedPlan(Base):

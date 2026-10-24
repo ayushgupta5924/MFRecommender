@@ -3,6 +3,7 @@ import { Link, Navigate, useNavigate, useSearchParams } from "react-router-dom";
 import { startLogin, startSignup, verifyCode } from "../api";
 import { ComingSoon, useAuth } from "../auth";
 import "../styles/AuthScreen.css";
+import "../styles/InputScreen.css";
 import "../styles/shared.css";
 import { usePersistentState } from "../utils/storage";
 import AppBar from "./AppBar";
@@ -22,6 +23,7 @@ export default function AuthScreen({ mode }) {
   // Kept across a refresh so someone waiting for the email doesn't have to start over.
   const [pending, setPending] = usePersistentState("mfa:auth", null);
   const [name, setName] = useState("");
+  const [consent, setConsent] = useState(false);
   const [email, setEmail] = useState(params.get("email") || "");
   const [code, setCode] = useState("");
   const [busy, setBusy] = useState(false);
@@ -47,8 +49,9 @@ export default function AuthScreen({ mode }) {
     setError(null); setBusy(true);
     try {
       const target = onCodeStep ? pending.email : email;
-      const res = isSignup ? await startSignup(onCodeStep ? pending.name : name, target) : await startLogin(target);
-      setPending({ mode, email: res.email, name: onCodeStep ? pending.name : name,
+      const agreed = onCodeStep ? !!pending.consent : consent;
+      const res = isSignup ? await startSignup(onCodeStep ? pending.name : name, target, agreed) : await startLogin(target);
+      setPending({ mode, email: res.email, name: onCodeStep ? pending.name : name, consent: agreed,
                    resendAt: Date.now() + res.resend_after_seconds * 1000 });
       setNow(Date.now());
       setCode("");
@@ -62,7 +65,7 @@ export default function AuthScreen({ mode }) {
   const verify = async (value) => {
     setError(null); setBusy(true);
     try {
-      const u = await verifyCode(pending.email, value, mode);
+      const u = await verifyCode(pending.email, value, mode, !!pending.consent);
       setPending(null);
       setUser(u);
       navigate(next, { replace: true });
@@ -111,7 +114,17 @@ export default function AuthScreen({ mode }) {
                 <input id="email" type="email" className="fieldInput authInput" autoComplete="email" value={email}
                   onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" required />
               </div>
-              <button className="btnBlue" type="submit" disabled={busy || !email || (isSignup && name.trim().length < 2)}>
+              {isSignup && (
+                <label className="consentRow authConsent">
+                  <input type="checkbox" checked={consent} onChange={(e) => setConsent(e.target.checked)} />
+                  <span>
+                    I have read the <Link to="/privacy" target="_blank">Privacy Notice</Link> and agree to my name and
+                    email being used to run my account.
+                  </span>
+                </label>
+              )}
+              <button className="btnBlue" type="submit"
+                disabled={busy || !email || (isSignup && (name.trim().length < 2 || !consent))}>
                 {busy ? "Sending code…" : "Send code"}
               </button>
             </form>

@@ -240,3 +240,8 @@ a.investBtn { display: block; text-align: center; text-decoration: none; }
 @media (max-width: 480px) {
   .metricsGrid--three { grid-template-columns: 1fr 1fr; }
 }
+
+.howToInvest { background: #f5f9ff; border-radius: 10px; padding: 10px 12px; margin-top: 12px; }
+.howToInvest__title { font-size: 13px; font-weight: 700; color: #1565c0; margin-bottom: 4px; }
+.howToInvest a { color: #1565c0; font-weight: 600; }
+.howToInvest code { font-size: 12px; background: #fff; padding: 1px 4px; border-radius: 4px; }

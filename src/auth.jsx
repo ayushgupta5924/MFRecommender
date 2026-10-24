@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useState } from "react";
 import { Link, Navigate, useLocation } from "react-router-dom";
 import { getHealth, getMe, logout as apiLogout } from "./api";
+import { clearPlanData } from "./utils/storage";
 
 const AuthContext = createContext(null);
 
@@ -16,7 +17,8 @@ export function AuthProvider({ children }) {
   }, []);
 
   const logout = useCallback(async () => {
-    try { await apiLogout(); } finally { setUser(null); }
+    // Someone else may use this browser next: don't leave financial answers behind.
+    try { await apiLogout(); } finally { clearPlanData(); setUser(null); }
   }, []);
 
   return <AuthContext.Provider value={{ user, setUser, logout, accountsEnabled }}>{children}</AuthContext.Provider>;

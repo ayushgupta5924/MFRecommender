@@ -8,7 +8,7 @@ from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
 from app.db import get_db
-from app.db.tables import AuthSession, OtpCode, Portfolio, SavedPlan, User
+from app.db.tables import AuthSession, OtpCode, Portfolio, SavedPlan, User, utcnow
 from app.services import advice_log, auth
 from app.services.email import EmailNotConfigured, send_otp, send_welcome
 
@@ -19,6 +19,7 @@ router = APIRouter()
 class SignupStart(BaseModel):
     full_name: str = Field(..., min_length=2, max_length=120)
     email: str
+    consent: bool = False          # agreed to the privacy notice
 
 
 class LoginStart(BaseModel):
@@ -29,6 +30,7 @@ class Verify(BaseModel):
     email: str
     code: str = Field(..., min_length=6, max_length=6)
     purpose: Literal["signup", "login"]
+    consent: bool = False          # sign-up only: agreed to the privacy notice
 
 
 class UserOut(BaseModel):
@@ -59,6 +61,8 @@ def _send(db: Session, request: Request, email: str, purpose: str, full_name: Op
 
 @router.post("/auth/signup/start")
 def signup_start(body: SignupStart, request: Request, db: Session = Depends(get_db)):
+    if not body.consent:
+        raise HTTPException(422, "Please agree to the Privacy Notice to create an account.")
     email = auth.normalise_email(body.email)
     name = " ".join(body.full_name.split())
     if len(name) < 2:
@@ -83,7 +87,10 @@ def verify(body: Verify, response: Response, db: Session = Depends(get_db)):
     user = db.scalars(select(User).where(User.email == email)).first()
     if body.purpose == "signup":
         if user is None:
-            user = User(email=email, full_name=otp.full_name or email.split("@")[0])
+            if not body.consent:
+                raise HTTPException(422, "Please agree to the Privacy Notice to create an account.")
+            user = User(email=email, full_name=otp.full_name or email.split("@")[0],
+                        consented_at=utcnow(), consent_version=auth.PRIVACY_VERSION)
             db.add(user)
             db.commit()
             try:

@@ -96,3 +96,5 @@
 .alt__name { font-size: 13px; font-weight: 600; color: #222; }
 .alt__meta { font-size: 12px; color: #777; margin-top: 2px; }
 .reviewHero__note { font-size: 12px; opacity: 0.85; margin-top: 12px; }
+.importConsent { display: flex; flex-direction: column; gap: 8px; margin: 4px 0 14px; }
+.importConsent a { color: #1976d2; font-weight: 600; }

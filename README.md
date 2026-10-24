@@ -160,6 +160,14 @@ Example request:
   officers, grievance email, address). Replace them with your real details.
 - Review the disclaimer (`src/components/Disclaimer.jsx`) and footer (`src/components/Footer.jsx`) with your
   compliance officer.
+- **Every month, by the 7th:** update `src/constants/complaints.js` (SEBI's Annexure B format) and deploy.
+- Disclosure pages: `/investor-charter` (SEBI's text), `/complaints`, `/how-advice-works` (use of automated tools and
+  AI, regulation 18), `/privacy` (DPDP notice). Have the last two reviewed. If the privacy notice changes
+  materially, bump `PRIVACY_VERSION` in both `src/constants/privacy.js` and `backend/app/services/auth.py`.
+- Consent is required at sign-up and before holdings are stored, and recorded with the notice version.
+  Portfolio alerts are opt-in.
+- Fund cards point to the fund house or MF Central rather than a distributor, to keep advice and distribution
+  separate.
 
 ## Privacy
 

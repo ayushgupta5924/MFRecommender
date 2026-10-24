@@ -24,8 +24,11 @@ export default function Footer() {
           <a href={SEBI_LINKS.scores} target="_blank" rel="noopener noreferrer">SEBI SCORES</a> or the{" "}
           <a href={SEBI_LINKS.odr} target="_blank" rel="noopener noreferrer">Smart ODR portal</a>. {c.sebiOffice}.
         </div>
-        <div className="footer__line">
+        <div className="footer__line footer__links">
           <Link to="/investor-charter">Investor Charter</Link>
+          <Link to="/complaints">Complaints data</Link>
+          <Link to="/how-advice-works">How our advice works</Link>
+          <Link to="/privacy">Privacy Notice</Link>
         </div>
         <div className="footer__line footer__muted">
           Investments in securities market are subject to market risks. Read all the related documents carefully before investing.

@@ -48,9 +48,11 @@ export const getPortfolio = (payload) => request("/api/portfolio", { json: paylo
 export const getHealth = () => request("/api/health");
 
 // ── Auth ──
-export const startSignup = (fullName, email) => request("/api/auth/signup/start", { json: { full_name: fullName, email } });
+export const startSignup = (fullName, email, consent) =>
+  request("/api/auth/signup/start", { json: { full_name: fullName, email, consent } });
 export const startLogin = (email) => request("/api/auth/login/start", { json: { email } });
-export const verifyCode = (email, code, purpose) => request("/api/auth/verify", { json: { email, code, purpose } });
+export const verifyCode = (email, code, purpose, consent = false) =>
+  request("/api/auth/verify", { json: { email, code, purpose, consent } });
 export const getMe = () => request("/api/auth/me");
 export const logout = () => request("/api/auth/logout", { method: "POST" });
 export const deleteAccount = () => request("/api/account", { method: "DELETE" });
@@ -63,10 +65,12 @@ export const removeHolding = (id) => request(`/api/review/holdings/${encodeURICo
 export const addHolding = (holding) => request("/api/review/holdings", { json: holding });
 export const searchFunds = (q) => request(`/api/funds/search?q=${encodeURIComponent(q)}`);
 
-export function uploadStatement(file, password) {
+export function uploadStatement(file, password, consent, alerts) {
   const form = new FormData();
   form.append("file", file);
   form.append("password", password);
+  form.append("consent", consent ? "true" : "false");
+  form.append("alerts", alerts ? "true" : "false");
   return request("/api/review/upload", { form });
 }
 
