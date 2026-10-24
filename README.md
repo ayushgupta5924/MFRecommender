@@ -64,7 +64,7 @@ python -m scripts.build_rankings --cache-dir ../.cache/mf
 
 ### Vercel (frontend)
 - Environment variable: `VITE_API_URL=https://<your-render-service>.onrender.com`
-- `vercel.json` skips builds when a commit only touches `backend/` or `.github/` (e.g. the nightly data commit).
+- `vercel.json` skips builds when nothing outside `backend/` or `.github/` changed since the last deployment (e.g. the nightly data commit).
 
 ### Render (backend)
 - Root directory: `backend`
