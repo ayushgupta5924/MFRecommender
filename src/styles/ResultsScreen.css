@@ -91,3 +91,5 @@
 .mixReasons__title { font-size: 13px; font-weight: 700; color: #333; margin-bottom: 6px; }
 .mixReasons ul { margin: 0; padding-left: 18px; }
 .mixReasons li { font-size: 13px; color: #555; line-height: 1.55; margin-bottom: 4px; }
+
+.resultsActions { display: flex; flex-direction: column; gap: 12px; margin-top: 8px; }

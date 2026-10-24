@@ -1,0 +1,432 @@
+import { useEffect, useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import { addHolding, deleteReview, getReview, removeHolding, searchFunds, uploadStatement } from "../api";
+import "../styles/ResultsScreen.css";
+import "../styles/ReviewScreen.css";
+import "../styles/shared.css";
+import { fmt, fmtDate } from "../utils/format";
+import AppBar from "./AppBar";
+import Disclaimer from "./Disclaimer";
+
+const CAS_URL = "https://www.camsonline.com/Investors/Statements/Consolidated-Account-Statement";
+const SLEEVES = [["equity", "Equity", "#d32f2f"], ["hybrid", "Hybrid", "#f57c00"], ["debt", "Debt", "#388e3c"], ["other", "Gold & other", "#7b1fa2"]];
+const STATUS_ORDER = ["in_form", "on_track", "off_track", "out_of_form", "not_rated"];
+const STATUS_LABEL = { in_form: "In form", on_track: "On track", off_track: "Off track", out_of_form: "Out of form", not_rated: "Not rated" };
+const LEVEL_ICON = { high: "🔴", medium: "🟠", low: "🔵", good: "✅" };
+
+// Fractions from the API (0.123) to "12.3%".
+const pctF = (v, digits = 1) => (v == null ? "—" : `${v < 0 ? "−" : ""}${Math.abs(v * 100).toFixed(digits)}%`);
+const signed = (n) => (n == null ? "—" : `${n < 0 ? "−" : "+"}${fmt(Math.abs(n))}`);
+
+// ── Import: CAS upload or manual entry ──────────────────────────────────────
+
+function UploadStatement({ onDone }) {
+  const [file, setFile] = useState(null);
+  const [password, setPassword] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+
+  const submit = async (e) => {
+    e.preventDefault();
+    setBusy(true); setError("");
+    try {
+      onDone(await uploadStatement(file, password));
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <form onSubmit={submit}>
+      <ol className="casSteps">
+        <li>Open the <a href={CAS_URL} target="_blank" rel="noreferrer">CAMS statement page</a> and choose
+          <b> CAS – CAMS + KFintech</b>. It covers funds from every fund house.</li>
+        <li>Pick <b>Detailed</b>, set the period to <b>Since inception</b>, enter your email and choose a password.</li>
+        <li>The PDF reaches your inbox in a few minutes. Upload it here with that password.</li>
+      </ol>
+      <div className="fieldWrap">
+        <label className="fieldLabel" htmlFor="cas">Statement PDF</label>
+        <input id="cas" type="file" accept="application/pdf,.pdf" className="fileInput"
+          onChange={(e) => setFile(e.target.files?.[0] || null)} />
+      </div>
+      <div className="fieldWrap">
+        <label className="fieldLabel" htmlFor="pw">PDF password</label>
+        <input id="pw" type="password" className="fieldInput plainInput" value={password} autoComplete="off"
+          onChange={(e) => setPassword(e.target.value)} placeholder="The password you set when requesting it" />
+      </div>
+      <button className="btnBlue" type="submit" disabled={busy || !file}>
+        {busy ? "Reading your statement…" : "Review my portfolio"}
+      </button>
+      {error && <div className="errorText">{error}</div>}
+      <div className="mutedText privacyNote">
+        🔒 We read the funds, units and transactions, then discard the file. Your PAN, address, phone and the PDF
+        itself are never stored, and you can delete your portfolio at any time.
+      </div>
+    </form>
+  );
+}
+
+function AddFund({ onDone }) {
+  const [q, setQ] = useState("");
+  const [hits, setHits] = useState([]);
+  const [fund, setFund] = useState(null);
+  const [mode, setMode] = useState("value");
+  const [amount, setAmount] = useState("");
+  const [invested, setInvested] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    if (fund || q.trim().length < 3) return undefined;
+    let live = true;
+    const t = setTimeout(() => {
+      searchFunds(q.trim()).then((r) => live && setHits(r)).catch(() => live && setHits([]));
+    }, 300);
+    return () => { live = false; clearTimeout(t); };
+  }, [q, fund]);
+
+  const submit = async (e) => {
+    e.preventDefault();
+    setBusy(true); setError("");
+    try {
+      const body = { code: fund.code, invested: invested ? Number(invested) : null };
+      body[mode === "units" ? "units" : "value"] = Number(amount);
+      onDone(await addHolding(body));
+      setFund(null); setQ(""); setAmount(""); setInvested(""); setHits([]);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  if (!fund) {
+    return (
+      <div>
+        <div className="fieldWrap">
+          <label className="fieldLabel" htmlFor="fundq">Search for a fund</label>
+          <input id="fundq" className="fieldInput plainInput" value={q} onChange={(e) => setQ(e.target.value)}
+            placeholder="e.g. Parag Parikh Flexi Cap" autoComplete="off" />
+        </div>
+        {q.trim().length >= 3 && (
+          <div className="fundHits">
+            {hits.length === 0 && <div className="mutedText">No matching funds yet. Try fewer words.</div>}
+            {hits.map((h) => (
+              <button type="button" key={h.code} className="fundHit" onClick={() => setFund(h)}>
+                <span className="fundHit__name">{h.name}</span>
+                <span className="fundHit__meta">{h.plan} · {h.option} · {h.amc}</span>
+              </button>
+            ))}
+          </div>
+        )}
+        <div className="mutedText">Check your statement or app for whether you hold the Direct or Regular plan.</div>
+      </div>
+    );
+  }
+
+  return (
+    <form onSubmit={submit}>
+      <div className="pickedFund">
+        <div>
+          <div className="fundHit__name">{fund.name}</div>
+          <div className="fundHit__meta">{fund.plan} · {fund.option} · {fund.amc}</div>
+        </div>
+        <button type="button" className="linkBtn" onClick={() => setFund(null)}>Change</button>
+      </div>
+      <div className="quizOptions" style={{ marginBottom: 12 }}>
+        {[["value", "I know its current value"], ["units", "I know the units"]].map(([v, l]) => (
+          <button type="button" key={v} className={`quizOption ${mode === v ? "quizOption--selected" : ""}`}
+            onClick={() => setMode(v)}>{l}</button>
+        ))}
+      </div>
+      <div className="fieldWrap">
+        <label className="fieldLabel" htmlFor="amt">{mode === "units" ? "Units held" : "Current value (₹)"}</label>
+        <input id="amt" type="number" min="0" step="any" className="fieldInput plainInput" value={amount}
+          onChange={(e) => setAmount(e.target.value)} required />
+      </div>
+      <div className="fieldWrap">
+        <label className="fieldLabel" htmlFor="inv">Amount you invested (₹, optional)</label>
+        <input id="inv" type="number" min="0" step="any" className="fieldInput plainInput" value={invested}
+          onChange={(e) => setInvested(e.target.value)} />
+      </div>
+      <button className="btnBlue" type="submit" disabled={busy || !(Number(amount) > 0)}>
+        {busy ? "Adding…" : "Add fund"}
+      </button>
+      {error && <div className="errorText">{error}</div>}
+    </form>
+  );
+}
+
+function ImportPanel({ onDone, onCancel }) {
+  const [tab, setTab] = useState("upload");
+  return (
+    <div className="card">
+      <div className="importTabs">
+        <button className={`importTab ${tab === "upload" ? "importTab--on" : ""}`} onClick={() => setTab("upload")}>
+          📄 Upload statement
+        </button>
+        <button className={`importTab ${tab === "manual" ? "importTab--on" : ""}`} onClick={() => setTab("manual")}>
+          ✍️ Add funds by hand
+        </button>
+      </div>
+      {tab === "upload" ? <UploadStatement onDone={onDone} /> : <AddFund onDone={onDone} />}
+      {onCancel && <button className="linkBtn cancelImport" onClick={onCancel}>Cancel</button>}
+    </div>
+  );
+}
+
+// ── Review ──────────────────────────────────────────────────────────────────
+
+function Summary({ data }) {
+  const s = data.summary;
+  return (
+    <div className="reviewHero">
+      <div className="reviewHero__label">Current value</div>
+      <div className="reviewHero__value">{fmt(s.value)}</div>
+      <div className="reviewHero__grid">
+        <div><span>Invested</span><b>{fmt(s.invested)}</b></div>
+        <div><span>Gain</span><b>{signed(s.gain)}{s.gain_pct != null && ` (${s.gain_pct.toFixed(1)}%)`}</b></div>
+        <div><span>XIRR</span><b>{s.xirr != null ? `${pctF(s.xirr)} a year` : "—"}</b></div>
+        <div><span>Funds</span><b>{s.funds}</b></div>
+      </div>
+      {s.invested != null && s.funds_with_cost < s.funds && (
+        <div className="reviewHero__note">
+          Invested and gain cover {s.funds_with_cost} of {s.funds} funds; add the amount invested to the others to include them.
+        </div>
+      )}
+    </div>
+  );
+}
+
+function Health({ health }) {
+  const counts = health.by_status || {};
+  return (
+    <div className="card">
+      <div className="card__title">Fund health</div>
+      {health.good_pct != null && (
+        <div className="healthLine">
+          <span className="healthLine__pct">{Math.round(health.good_pct)}%</span>
+          of the money in rated funds is in funds that are <b>in form</b> or <b>on track</b>.
+        </div>
+      )}
+      <div className="statusChips">
+        {STATUS_ORDER.filter((k) => counts[k]?.count).map((k) => (
+          <span key={k} className={`statusChip statusChip--${k}`}>{STATUS_LABEL[k]}: {counts[k].count}</span>
+        ))}
+      </div>
+      <div className="mutedText" style={{ marginTop: 10 }}>
+        Each fund is compared with every other fund in its category on 3- and 5-year returns, consistency
+        (rolling returns) and how far it fell in bad markets. Top quarter is in form, bottom quarter out of form.
+      </div>
+    </div>
+  );
+}
+
+function Allocation({ allocation, target }) {
+  return (
+    <div className="card">
+      <div className="card__title">Asset mix</div>
+      <div className="mixBar" role="img" aria-label="Your asset mix">
+        {SLEEVES.filter(([k]) => allocation[k] > 0).map(([k, , c]) => (
+          <div key={k} className="mixBar__seg" style={{ width: `${allocation[k]}%`, background: c }} />
+        ))}
+      </div>
+      <div className="mixLegend">
+        {SLEEVES.filter(([k]) => allocation[k] > 0).map(([k, label, c]) => (
+          <span key={k} className="mixLegend__item"><span className="mixLegend__dot" style={{ background: c }} />{label} {Math.round(allocation[k])}%</span>
+        ))}
+      </div>
+      {target?.asset_mix ? (
+        <div className="targetLine">
+          Your saved plan <b>{target.name}</b> aims for {Math.round(target.asset_mix.equity)}% equity,{" "}
+          {Math.round(target.asset_mix.hybrid)}% hybrid and {Math.round(target.asset_mix.debt)}% debt.
+        </div>
+      ) : (
+        <div className="targetLine">
+          <Link to="/plan">Build and save a plan</Link> to compare this mix with what suits your goal and risk profile.
+        </div>
+      )}
+    </div>
+  );
+}
+
+function Insights({ insights }) {
+  if (!insights.length) return null;
+  return (
+    <div className="card">
+      <div className="card__title">What to look at</div>
+      {insights.map((i) => (
+        <div key={i.key} className={`insight insight--${i.level}`}>
+          <div className="insight__title">{LEVEL_ICON[i.level]} {i.title}</div>
+          <div className="insight__text">{i.text}</div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function Tax({ tax }) {
+  if (!tax.lt_gain && !tax.st_gain && !tax.elss_locked) return null;
+  return (
+    <div className="card">
+      <div className="card__title">Tax view (equity funds)</div>
+      <div className="taxGrid">
+        <div><span>Long-term gains</span><b>{signed(tax.lt_gain)}</b><small>held over 1 year</small></div>
+        <div><span>Short-term gains</span><b>{signed(tax.st_gain)}</b><small>held 1 year or less</small></div>
+        {tax.elss_locked > 0 && <div><span>ELSS locked in</span><b>{fmt(tax.elss_locked)}</b><small>under 3 years old</small></div>}
+      </div>
+      <div className="mutedText" style={{ marginTop: 10 }}>
+        Up to {fmt(tax.ltcg_exemption)} of long-term equity gains a year is tax-free. If you haven't booked other
+        gains this year, selling and reinvesting up to that amount resets your cost and can lower tax later.
+        Debt fund gains are taxed at your income-tax slab. These are unrealised gains on what you hold now, not a tax
+        calculation{!tax.complete && "; some funds are missing because the statement doesn't start at your first investment"}.
+      </div>
+    </div>
+  );
+}
+
+function HoldingCard({ h, onRemove }) {
+  const [open, setOpen] = useState(false);
+  const r = h.rating;
+  const m = r.metrics || {};
+  const c = r.category || {};
+  return (
+    <div className={`holding holding--${r.status}`}>
+      <button type="button" className="holding__head" onClick={() => setOpen(!open)} aria-expanded={open}>
+        <div className="holding__main">
+          <div className="holding__name">{h.name}</div>
+          <div className="holding__meta">
+            {h.category} · <span className={h.plan === "Regular" ? "tagWarn" : ""}>{h.plan}</span>
+            {h.option === "IDCW" && <> · <span className="tagWarn">IDCW</span></>}
+            {h.source === "manual" && " · added by hand"}
+          </div>
+        </div>
+        <div className="holding__right">
+          <span className={`statusChip statusChip--${r.status}`}>{r.label}</span>
+          <div className="holding__value">{fmt(h.value)}</div>
+          <div className={`holding__gain ${h.gain < 0 ? "neg" : ""}`}>
+            {h.gain != null ? signed(h.gain) : ""}{h.xirr != null ? ` · ${pctF(h.xirr)} XIRR` : ""}
+          </div>
+        </div>
+      </button>
+      {open && (
+        <div className="holding__body">
+          <div className="holding__action"><b>{r.status === "not_rated" ? "Why no rating: " : "What to do: "}</b>{h.action.text}</div>
+          {r.status !== "not_rated" && <div className="mutedText">{r.reason}</div>}
+          {r.metrics && (
+            <table className="metricTable">
+              <thead><tr><th></th><th>This fund</th><th>Category median</th></tr></thead>
+              <tbody>
+                <tr><td>1-year return</td><td>{pctF(m.cagr_1y)}</td><td>{pctF(c.cagr_1y)}</td></tr>
+                <tr><td>3-year return (a year)</td><td>{pctF(m.cagr_3y)}</td><td>{pctF(c.cagr_3y)}</td></tr>
+                <tr><td>5-year return (a year)</td><td>{pctF(m.cagr_5y)}</td><td>{pctF(c.cagr_5y)}</td></tr>
+                <tr><td>Worst fall</td><td>{pctF(m.max_drawdown, 0)}</td><td>{pctF(c.max_drawdown, 0)}</td></tr>
+              </tbody>
+            </table>
+          )}
+          {h.plan === "Regular" && (
+            <div className="holding__note">
+              💸 Regular plan.{h.cost_gap != null && ` Its Direct plan returned about ${pctF(h.cost_gap)} more over the last year.`}{" "}
+              Start new SIPs in the Direct plan of the same fund.
+            </div>
+          )}
+          {h.alternatives.length > 0 && (
+            <div className="alts">
+              <div className="alts__title">Better-ranked {h.category} funds from other fund houses</div>
+              {h.alternatives.map((a) => (
+                <div key={a.code} className="alt">
+                  <div className="alt__name">#{a.rank} {a.name}</div>
+                  <div className="alt__meta">3 yr {pctF(a.cagr_3y)} · 5 yr {pctF(a.cagr_5y)} · worst fall {pctF(a.max_drawdown, 0)}</div>
+                </div>
+              ))}
+            </div>
+          )}
+          <div className="holding__foot">
+            <span className="mutedText">{h.units} units · NAV {h.nav ? `₹${h.nav.toFixed(2)}` : "—"} on {fmtDate(h.nav_date)}</span>
+            {h.source === "manual" && <button className="btnDanger" onClick={() => onRemove(h.ids[0])}>Remove</button>}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+export default function ReviewScreen() {
+  const navigate = useNavigate();
+  const [data, setData] = useState(null);
+  const [error, setError] = useState("");
+  const [importing, setImporting] = useState(false);
+
+  useEffect(() => {
+    getReview().then(setData).catch((e) => setError(e.message));
+  }, []);
+
+  const replace = (d) => { setData(d); setImporting(false); window.scrollTo(0, 0); };
+  const onRemove = async (id) => {
+    try { setData(await removeHolding(id)); } catch (e) { setError(e.message); }
+  };
+  const onDeleteAll = async () => {
+    if (!window.confirm("Delete your imported portfolio? Your account and saved plans stay.")) return;
+    try { await deleteReview(); setData({ empty: true }); } catch (e) { setError(e.message); }
+  };
+
+  return (
+    <div className="page">
+      <AppBar title="Portfolio review" onBack={() => navigate("/")} />
+      <div className="body">
+        {error && <div className="errorText" style={{ marginBottom: 16 }}>{error}</div>}
+        {!data && !error && <div className="pageLoading">Loading your portfolio… (the server can take up to a minute to wake up)</div>}
+
+        {data?.empty && (
+          <>
+            <div className="stepTitle">Review your mutual funds</div>
+            <div className="stepSubtitle">
+              See how each fund ranks in its category, what you've really earned, where you're paying too much, and
+              what to fix. Re-checked against fresh data every night.
+            </div>
+            <ImportPanel onDone={replace} />
+          </>
+        )}
+
+        {data && !data.empty && (
+          <>
+            {data.parse_warnings?.length > 0 && (
+              <div className="warningBox">
+                <div className="warningBox__title">Some lines in the statement didn't add up</div>
+                <div className="warningBox__item">Figures for those funds may be slightly off.</div>
+              </div>
+            )}
+            <Summary data={data} />
+            <Insights insights={data.insights} />
+            <Health health={data.health} />
+            <Allocation allocation={data.allocation} target={data.target} />
+            <Tax tax={data.tax} />
+
+            <div className="sectionHeading">Your funds</div>
+            {data.holdings.map((h) => <HoldingCard key={h.code} h={h} onRemove={onRemove} />)}
+            {data.unrecognised?.length > 0 && (
+              <div className="mutedText" style={{ margin: "8px 0 16px" }}>
+                Not recognised (closed or merged schemes): {data.unrecognised.map((u) => u.name).join(", ")}.
+              </div>
+            )}
+
+            <div className="dataNote">
+              Values use the latest NAVs. Ratings use fund rankings as of {fmtDate(data.rankings_date)}.
+              {data.statement?.to && ` Statement period ${data.statement.from || "—"} to ${data.statement.to}.`}
+            </div>
+
+            {importing ? <ImportPanel onDone={replace} onCancel={() => setImporting(false)} /> : (
+              <div className="resultsActions">
+                <button className="btnOutline" onClick={() => setImporting(true)}>📄 Upload a newer statement or add a fund</button>
+                <button className="btnDanger" onClick={onDeleteAll}>Delete my imported portfolio</button>
+              </div>
+            )}
+            <Disclaimer />
+          </>
+        )}
+      </div>
+    </div>
+  );
+}

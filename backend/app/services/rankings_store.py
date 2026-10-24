@@ -11,7 +11,7 @@ import os
 import threading
 import time
 from pathlib import Path
-from typing import Optional
+from typing import Callable, Dict, Optional
 
 import requests
 
@@ -27,6 +27,7 @@ class RankingsStore:
     def __init__(self, path: Path = BUNDLED_PATH, url: Optional[str] = None):
         self.path = path
         self.url = url if url is not None else os.getenv("RANKINGS_URL", "")
+        self.name = "Rankings"
         self._data: Optional[dict] = None
         self._loaded_at = 0.0
         self._lock = threading.Lock()
@@ -35,10 +36,13 @@ class RankingsStore:
     def _valid(self, data: dict) -> bool:
         return isinstance(data, dict) and data.get("schema_version") == SCHEMA_VERSION and bool(data.get("buckets"))
 
+    def _newer(self, data: dict) -> bool:
+        return data.get("nav_date", "") >= (self._data or {}).get("nav_date", "")
+
     def _load_bundled(self) -> None:
         data = json.loads(self.path.read_text(encoding="utf-8"))
         if not self._valid(data):
-            raise RuntimeError(f"{self.path} is not a schema v{SCHEMA_VERSION} rankings file")
+            raise RuntimeError(f"{self.path} is not a valid {self.name.lower()} file")
         # With a remote URL, treat the bundled copy as stale so the first request pulls the latest.
         self._data, self._loaded_at = data, (0.0 if self.url else time.time())
 
@@ -47,11 +51,11 @@ class RankingsStore:
             resp = requests.get(self.url, timeout=20)
             resp.raise_for_status()
             data = resp.json()
-            if self._valid(data) and data.get("nav_date", "") >= (self._data or {}).get("nav_date", ""):
+            if self._valid(data) and self._newer(data):
                 self._data = data
-                logger.info("Rankings refreshed from remote (NAV date %s)", data.get("nav_date"))
+                logger.info("%s refreshed from remote", self.name)
         except Exception as e:
-            logger.warning("Rankings refresh failed, keeping current data: %s", e)
+            logger.warning("%s refresh failed, keeping current data: %s", self.name, e)
         finally:
             self._loaded_at = time.time()
             self._refreshing = False
@@ -67,4 +71,33 @@ class RankingsStore:
             return self._data
 
 
+class SchemeMapStore(RankingsStore):
+    """Every open-ended scheme (any plan or option) and its Direct-Growth twin; built nightly with the rankings."""
+
+    def __init__(self):
+        rankings_url = os.getenv("RANKINGS_URL", "")
+        super().__init__(BUNDLED_PATH.with_name("scheme_map.json"),
+                         rankings_url.replace("rankings.json", "scheme_map.json") if rankings_url else "")
+        self.name = "Scheme map"
+        self._isin_index: Dict[str, str] = {}
+        self._indexed: Optional[dict] = None
+
+    def _valid(self, data: dict) -> bool:
+        return isinstance(data, dict) and data.get("schema_version") == 1 and bool(data.get("schemes"))
+
+    def _newer(self, data: dict) -> bool:
+        return data.get("generated_at", "") >= (self._data or {}).get("generated_at", "")
+
+    def schemes(self) -> Dict[str, dict]:
+        return self.get()["schemes"]
+
+    def code_for_isin(self, isin: str) -> Optional[str]:
+        data = self.get()
+        if self._indexed is not data:
+            self._isin_index = {i: code for code, s in data["schemes"].items() for i in s["isins"]}
+            self._indexed = data
+        return self._isin_index.get(isin)
+
+
 store = RankingsStore()
+scheme_map = SchemeMapStore()

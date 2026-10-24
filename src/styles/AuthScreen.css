@@ -1,0 +1,12 @@
+.authBody { max-width: 440px; padding-top: 40px; }
+.authCard { padding: 28px 24px; }
+.authCard__title { font-size: 22px; font-weight: 800; color: #111; margin-bottom: 6px; }
+.authCard__sub { font-size: 14px; color: #666; line-height: 1.5; margin-bottom: 22px; }
+.authCard__row { display: flex; justify-content: space-between; margin-top: 16px; }
+.authCard__row .linkBtn:disabled { color: #999; text-decoration: none; cursor: default; }
+.authCard__note { margin-top: 14px; }
+.authInput { padding-left: 14px; }
+.authCode { font-size: 24px; letter-spacing: 10px; text-align: center; font-weight: 700; }
+.authSwitch { text-align: center; font-size: 14px; color: #555; margin-top: 8px; }
+.authSwitch a, .authCard a { color: #1976d2; font-weight: 600; }
+.authPrivacy { text-align: center; margin-top: 24px; font-size: 12px; }
