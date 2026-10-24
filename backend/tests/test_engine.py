@@ -186,3 +186,46 @@ def test_every_bucket_has_ranked_funds():
     data = engine.rankings.get()
     for key in BUCKETS:
         assert len(data["buckets"][key]["funds"]) >= 5, key
+
+
+# ── Suitability inputs ───────────────────────────────────────────────────────
+
+BASE = dict(life_stage="peak_earning", goal="wealth_creation", risk_tolerance="moderate",
+            monthly_budget=20_000, horizon_years=12)
+
+
+def test_lower_of_capacity_and_willingness_is_used():
+    p = engine.get_portfolio(UserProfile(**BASE, capacity_score=30, willingness_score=85))
+    assert p.risk_profile.score == 30 and p.risk_profile.limited_by == "capacity"
+    assert any("finances can absorb" in w for w in p.warnings)
+    p = engine.get_portfolio(UserProfile(**BASE, capacity_score=85, willingness_score=30))
+    assert p.risk_profile.score == 30 and p.risk_profile.limited_by == "willingness"
+
+
+def test_fixed_deadline_lowers_equity():
+    flexible = alloc.sleeve_mix(60, 6, LifeStage.PEAK_EARNING, InvestmentGoal.BUY_HOME, False)["equity"]
+    fixed = alloc.sleeve_mix(60, 6, LifeStage.PEAK_EARNING, InvestmentGoal.BUY_HOME, True)["equity"]
+    assert fixed < flexible
+
+
+def test_target_in_todays_money_is_inflated():
+    common = dict(life_stage="new_parent", goal="child_education", risk_tolerance="moderate",
+                  target_amount=2_000_000, horizon_years=15)
+    nominal = engine.get_portfolio(UserProfile(**common))
+    today = engine.get_portfolio(UserProfile(**common, target_in_today_value=True))
+    assert today.target_amount_today == 2_000_000
+    assert today.target_amount == pytest.approx(2_000_000 * 1.06 ** 15, rel=0.001)
+    assert today.monthly_investment > nominal.monthly_investment
+
+
+def test_suitability_warnings():
+    p = engine.get_portfolio(UserProfile(**BASE, monthly_income=50_000, monthly_expenses=30_000, monthly_emi=25_000,
+                                         emergency_months=1, dependents=2,
+                                         has_health_insurance=False, has_term_insurance=False))
+    text = " ".join(p.warnings)
+    for phrase in ("after expenses and EMIs", "EMIs take", "emergency fund", "health insurance", "term insurance"):
+        assert phrase in text, phrase
+    clean = engine.get_portfolio(UserProfile(**BASE, monthly_income=200_000, monthly_expenses=50_000, monthly_emi=0,
+                                             emergency_months=6, dependents=2,
+                                             has_health_insurance=True, has_term_insurance=True))
+    assert not any(w for w in clean.warnings if "insurance" in w or "EMI" in w or "emergency" in w)

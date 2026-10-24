@@ -41,6 +41,10 @@ class UserProfile(BaseModel):
     goal:               InvestmentGoal
     risk_tolerance:     RiskTolerance
     risk_score:         Optional[float] = Field(None, ge=0, le=100)   # from the risk questionnaire
+    # Ability (finances) and willingness (attitude) to take risk, scored separately.
+    # When both are given the plan uses the lower one.
+    capacity_score:     Optional[float] = Field(None, ge=0, le=100)
+    willingness_score:  Optional[float] = Field(None, ge=0, le=100)
     monthly_budget:     Optional[float] = Field(None, ge=0, le=10_000_000)
 
     # Goal-based SIP calculator inputs
@@ -48,10 +52,21 @@ class UserProfile(BaseModel):
     target_years:       Optional[int]   = Field(None, ge=1, le=40)
     horizon_years:      Optional[int]   = Field(None, ge=1, le=40)
     tax_regime:         Optional[TaxRegime] = None
+    target_in_today_value: bool = False          # target is in today's rupees; grow it by inflation
+    fixed_deadline:     Optional[bool]  = None   # True if the date can't move should markets be down
+
+    # Finances, used for suitability checks
+    age:                Optional[int]   = Field(None, ge=0, le=120)
+    monthly_income:     Optional[float] = Field(None, ge=0, le=1_000_000_000)
+    monthly_expenses:   Optional[float] = Field(None, ge=0, le=1_000_000_000)   # excluding EMIs
+    monthly_emi:        Optional[float] = Field(None, ge=0, le=1_000_000_000)
+    dependents:         Optional[int]   = Field(None, ge=0, le=20)
+    emergency_months:   Optional[float] = Field(None, ge=0, le=120)
+    has_health_insurance: Optional[bool] = None
+    has_term_insurance:   Optional[bool] = None
 
     # Legacy support
     budget:             Optional[float] = None
-    age:                Optional[int]   = None
     investment_horizon: Optional[int]   = None
     goals:              Optional[List[str]] = None
 
@@ -115,6 +130,9 @@ class RiskProfile(BaseModel):
     score:   float
     label:   str
     profile: str
+    capacity:    Optional[float] = None
+    willingness: Optional[float] = None
+    limited_by:  Optional[str] = None    # "capacity" | "willingness" when the two differ
 
 
 class PortfolioRecommendation(BaseModel):
@@ -122,7 +140,7 @@ class PortfolioRecommendation(BaseModel):
     portfolio_emoji:       str
     portfolio_description: str
     monthly_sip_required:  Optional[float]
-    target_amount:         Optional[float]
+    target_amount:         Optional[float]          # in rupees at the end of the horizon
     target_years:          Optional[int]
     expected_return:       float
     funds:                 List[FundRecommendation]
@@ -132,6 +150,7 @@ class PortfolioRecommendation(BaseModel):
     total_invested:        float = 0
     asset_mix:             Dict[str, float] = {}
     projections:           Dict[str, Projection] = {}
+    target_amount_today:   Optional[float] = None   # the target as entered, when given in today's rupees
     goal_status:           Optional[str] = None     # "on_track" | "shortfall"
     shortfall_monthly:     Optional[float] = None
     risk_profile:          Optional[RiskProfile] = None

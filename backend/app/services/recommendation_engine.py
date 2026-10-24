@@ -83,17 +83,22 @@ class RecommendationEngine:
 
     def get_portfolio(self, profile: UserProfile) -> PortfolioRecommendation:
         data = self.rankings.get()
-        score = profile.risk_score if profile.risk_score is not None else RISK_TOLERANCE_SCORE[profile.risk_tolerance]
+        score, limited_by = self._risk_score(profile)
         label, scoring_profile = alloc.risk_label(score)
         horizon = alloc.resolve_horizon(profile.goal, profile.get_horizon())
+        fixed = bool(profile.fixed_deadline)
         target = profile.target_amount or None
+        target_today = None
+        if target and profile.target_in_today_value:
+            target_today = target
+            target = round(target * (1 + INFLATION) ** horizon)
         warnings: List[str] = []
 
         # 1. Decide the monthly amount. The investor's own budget always wins;
         #    a target only tells us whether that budget is enough.
         budget = profile.get_budget()
         provisional_mix, provisional_slots = alloc.build_slots(
-            score, horizon, profile.life_stage, profile.goal, max(budget, 10_000), profile.tax_regime)
+            score, horizon, profile.life_stage, profile.goal, max(budget, 10_000), profile.tax_regime, fixed)
         expected_rate = self._portfolio_rate(provisional_mix, provisional_slots, data, "expected")
         sip_needed = math.ceil(required_sip(target, horizon, expected_rate) / 100) * 100 if target else None
         if budget <= 0:
@@ -104,7 +109,7 @@ class RecommendationEngine:
             raise ValueError(f"The minimum monthly SIP is ₹{alloc.MIN_SIP}.")
 
         # 2. Allocation for the real budget.
-        mix, slots = alloc.build_slots(score, horizon, profile.life_stage, profile.goal, budget, profile.tax_regime)
+        mix, slots = alloc.build_slots(score, horizon, profile.life_stage, profile.goal, budget, profile.tax_regime, fixed)
         hybrid_key = alloc.hybrid_bucket(max(mix["equity"], 0.2), score, horizon)
         slots = alloc.consolidate(slots, budget, hybrid_key, protected=["elss"])
         amounts = alloc.to_amounts(slots, budget)
@@ -132,6 +137,7 @@ class RecommendationEngine:
             if goal_status == "shortfall":
                 shortfall = float(max(sip_needed - budget, 0))
 
+        warnings += self._suitability_warnings(profile, budget, limited_by)
         warnings += self._warnings(profile, horizon, funds, data)
 
         name, description = self._name(profile, scoring_profile, mix, horizon)
@@ -142,6 +148,7 @@ class RecommendationEngine:
             portfolio_description=description,
             monthly_sip_required=float(sip_needed) if sip_needed else None,
             target_amount=target,
+            target_amount_today=target_today,
             target_years=horizon if target else profile.target_years,
             expected_return=round(expected * 100, 2),
             funds=funds,
@@ -152,12 +159,26 @@ class RecommendationEngine:
             projections=projections,
             goal_status=goal_status,
             shortfall_monthly=shortfall,
-            risk_profile=RiskProfile(score=round(score, 1), label=label, profile=scoring_profile),
+            risk_profile=RiskProfile(score=round(score, 1), label=label, profile=scoring_profile,
+                                     capacity=profile.capacity_score, willingness=profile.willingness_score,
+                                     limited_by=limited_by),
             inflation_assumption=INFLATION * 100,
             warnings=warnings,
             data_as_of=data.get("nav_date"),
             generated_at=data.get("generated_at"),
         )
+
+    @staticmethod
+    def _risk_score(profile: UserProfile):
+        """(score used for the plan, which side limited it when capacity and willingness differ)."""
+        cap, will = profile.capacity_score, profile.willingness_score
+        if cap is not None and will is not None:
+            if cap == will:
+                return cap, None
+            return min(cap, will), ("capacity" if cap < will else "willingness")
+        if profile.risk_score is not None:
+            return profile.risk_score, None
+        return RISK_TOLERANCE_SCORE[profile.risk_tolerance], None
 
     @staticmethod
     def _name(profile: UserProfile, scoring_profile: str, mix: Dict[str, float], horizon: int):
@@ -302,6 +323,35 @@ class RecommendationEngine:
         elif profile.life_stage == LifeStage.HOME_BUYER and bucket.sleeve == "debt":
             parts.append("Keeps your down payment safe from equity market falls.")
         return " ".join(parts)
+
+    @staticmethod
+    def _suitability_warnings(profile: UserProfile, budget: float, limited_by: Optional[str]) -> List[str]:
+        """Checks on the investor's finances. Each only fires when the answer was given."""
+        out = []
+        if limited_by == "capacity":
+            out.append("You're comfortable with more risk than your finances can absorb right now "
+                       "(age, income, dependents, loans or savings), so the plan uses the lower of the two.")
+        income = profile.monthly_income
+        if income:
+            emi = profile.monthly_emi or 0
+            surplus = income - (profile.monthly_expenses or 0) - emi
+            if budget > max(surplus, 0):
+                out.append(f"This SIP is more than you have left each month after expenses and EMIs "
+                           f"(about ₹{max(surplus, 0):,.0f}). Make sure you can keep it going.")
+            if emi / income > 0.4:
+                out.append(f"Your EMIs take {emi / income:.0%} of your income. Prepaying costly loans "
+                           "can be a better first step than investing.")
+        if (profile.emergency_months is not None and profile.emergency_months < 3
+                and profile.goal != InvestmentGoal.EMERGENCY_CORPUS):
+            out.append("You have under 3 months of expenses saved. Build an emergency fund first "
+                       "or alongside this plan, so you're never forced to sell in a bad market.")
+        if profile.has_health_insurance is False:
+            out.append("You don't have health insurance. One hospital bill can undo years of investing; "
+                       "consider a health cover before or alongside this plan.")
+        if profile.has_term_insurance is False and (profile.dependents or 0) > 0:
+            out.append("People depend on your income but you have no term insurance. A term plan "
+                       "protects them if something happens to you.")
+        return out
 
     def _warnings(self, profile: UserProfile, horizon: int, funds: List[FundRecommendation], data: dict) -> List[str]:
         out = []

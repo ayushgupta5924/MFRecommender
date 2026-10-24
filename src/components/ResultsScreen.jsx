@@ -18,6 +18,10 @@ export default function ResultsScreen({ onBack, results }) {
   const mix = results?.asset_mix || {};
   const projections = results?.projections || {};
   const years = results?.horizon_years;
+  const risk = results?.risk_profile;
+  const target = results?.target_amount_today
+    ? `${fmt(results.target_amount)} (${fmt(results.target_amount_today)} in today's money)`
+    : fmt(results?.target_amount);
 
   return (
     <div className="page">
@@ -91,11 +95,23 @@ export default function ResultsScreen({ onBack, results }) {
           {results.target_amount && (
             <div className={`goalStatus goalStatus--${results.goal_status}`}>
               {results.goal_status === "on_track"
-                ? `✅ On track for your ${fmt(results.target_amount)} target.`
-                : `⚠️ Expected to fall short of ${fmt(results.target_amount)}. Increase your SIP by about ${fmt(results.shortfall_monthly)}/month or extend the timeline.`}
+                ? `✅ On track for your ${target} target.`
+                : `⚠️ Expected to fall short of ${target}. Increase your SIP by about ${fmt(results.shortfall_monthly)}/month or extend the timeline.`}
             </div>
           )}
         </div>
+
+        {risk?.capacity != null && risk?.willingness != null && (
+          <div className="card">
+            <div className="card__title">Your risk profile: {risk.label} ({Math.round(risk.score)}/100)</div>
+            <div className="projNote" style={{ marginTop: 0 }}>
+              Ability to take risk {Math.round(risk.capacity)}/100 · Comfort with risk {Math.round(risk.willingness)}/100.{" "}
+              {risk.limited_by === "capacity" && "Your finances set the limit, so the plan follows them rather than your appetite."}
+              {risk.limited_by === "willingness" && "Your comfort level set the limit, so the plan won't take more risk than you're happy with."}
+              {!risk.limited_by && "Both point the same way."}
+            </div>
+          </div>
+        )}
 
         {results.warnings?.length > 0 && (
           <div className="warningBox">
