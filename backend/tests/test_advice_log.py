@@ -49,7 +49,7 @@ def test_reviews_are_kept_and_survive_account_deletion(monkeypatch):
     monkeypatch.setattr(navs, "histories", histories())
     client = logged_in_client(monkeypatch, "keep@example.com")
     code = client.get("/api/funds/search", params={"q": "parag parikh flexi"}).json()[0]["code"]
-    client.post("/api/review/holdings", json={"code": code, "value": 50_000})
+    client.post("/api/review/holdings", json={"code": code, "value": 50_000, "consent": True})
     client.get("/api/review")                                       # nothing new to say: not stored again
     reviews = records(client_email="keep@example.com", kind="review")
     assert len(reviews) == 1

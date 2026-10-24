@@ -18,9 +18,10 @@ def capture_codes(monkeypatch):
 
 
 def signup(client, email="asha@example.com", name="Asha Rao"):
-    r = client.post("/api/auth/signup/start", json={"full_name": name, "email": email})
+    r = client.post("/api/auth/signup/start", json={"full_name": name, "email": email, "consent": True})
     assert r.status_code == 200, r.text
-    r = client.post("/api/auth/verify", json={"email": email, "code": sent[email.strip().lower()], "purpose": "signup"})
+    r = client.post("/api/auth/verify", json={"email": email, "code": sent[email.strip().lower()], "purpose": "signup",
+                                              "consent": True})
     assert r.status_code == 200, r.text
     return r.json()
 
@@ -33,7 +34,8 @@ def test_signup_login_logout():
     assert "mfa_session" in client.cookies
 
     # Can't sign up twice with the same email.
-    assert client.post("/api/auth/signup/start", json={"full_name": "X Y", "email": "asha@example.com"}).status_code == 409
+    assert client.post("/api/auth/signup/start", json={"full_name": "X Y", "email": "asha@example.com",
+                                                             "consent": True}).status_code == 409
 
     client.post("/api/auth/logout")
     assert client.get("/api/auth/me").status_code == 401
@@ -102,7 +104,8 @@ def test_accounts_stay_off_until_production_settings_exist(monkeypatch):
     monkeypatch.delenv("EMAIL_DEV_MODE")
     monkeypatch.setattr(auth, "DATABASE_URL", "sqlite:///./local.db")   # as on Render before Neon is set
     assert client.get("/api/health").json()["accounts_enabled"] is False
-    r = client.post("/api/auth/signup/start", json={"full_name": "No Mail", "email": "nomail@example.com"})
+    r = client.post("/api/auth/signup/start", json={"full_name": "No Mail", "email": "nomail@example.com",
+                                                    "consent": True})
     assert r.status_code == 503
     # Email alone isn't enough while the database is still a local SQLite file...
     monkeypatch.setenv("RESEND_API_KEY", "x")

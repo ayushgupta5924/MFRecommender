@@ -100,7 +100,8 @@ class FundRecommendation(BaseModel):
     allocation_amount:    float
     monthly_sip_amount:   float
     reason:               str
-    investment_url:       str
+    investment_url:       str                   # neutral: MF Central, the RTAs' platform for Direct plans
+    isin:                 Optional[str] = None
 
     # Evidence behind the pick
     amc:                  str = ""

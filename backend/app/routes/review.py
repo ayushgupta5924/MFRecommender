@@ -12,7 +12,7 @@ from app.db.tables import Portfolio, SavedPlan, User, utcnow
 from app.services import advice_log
 from app.services import holdings as hold
 from app.services import nav as navs
-from app.services.auth import current_user
+from app.services.auth import PRIVACY_VERSION, current_user
 from app.services.ranking import tidy_name
 from app.services.rankings_store import scheme_map
 from app.services.review import Reviewer
@@ -21,6 +21,13 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 reviewer = Reviewer()
 MAX_SAVED_PLANS = 20
+CONSENT_MESSAGE = "Please agree to us storing your fund holdings to review them (see the Privacy Notice)."
+
+
+def _record_consent(p: Portfolio, user: User, alerts: Optional[bool]) -> None:
+    p.consented_at, p.consent_version = utcnow(), PRIVACY_VERSION
+    if alerts is not None:
+        user.alerts_enabled = alerts
 
 
 def _portfolio(db: Session, user: User) -> Optional[Portfolio]:
@@ -56,8 +63,11 @@ def get_review(user: User = Depends(current_user), db: Session = Depends(get_db)
 
 
 @router.post("/review/upload")
-async def upload_statement(file: UploadFile = File(...), password: str = Form(""),
-                           user: User = Depends(current_user), db: Session = Depends(get_db)):
+async def upload_statement(file: UploadFile = File(...), password: str = Form(""), consent: bool = Form(False),
+                           alerts: bool = Form(False), user: User = Depends(current_user),
+                           db: Session = Depends(get_db)):
+    if not consent:
+        raise HTTPException(422, CONSENT_MESSAGE)
     pdf = await file.read(hold.MAX_PDF_BYTES + 1)
     try:
         parsed = hold.parse_cas(pdf, password)
@@ -76,6 +86,7 @@ async def upload_statement(file: UploadFile = File(...), password: str = Form(""
     p.statement_from, p.statement_to = parsed["statement_from"], parsed["statement_to"]
     p.statement_type = parsed["statement_type"]
     p.updated_at = utcnow()
+    _record_consent(p, user, alerts)
     db.add(p)
     db.commit()
     result = _review(db, user, p)
@@ -85,6 +96,8 @@ async def upload_statement(file: UploadFile = File(...), password: str = Form(""
 
 class ManualHolding(BaseModel):
     code: str
+    consent: bool = False
+    alerts: Optional[bool] = None
     units: Optional[float] = Field(None, gt=0, le=1e9)
     value: Optional[float] = Field(None, gt=0, le=1e11)        # current value in rupees, if units unknown
     invested: Optional[float] = Field(None, ge=0, le=1e11)
@@ -92,6 +105,8 @@ class ManualHolding(BaseModel):
 
 @router.post("/review/holdings")
 def add_holding(body: ManualHolding, user: User = Depends(current_user), db: Session = Depends(get_db)):
+    if not body.consent:
+        raise HTTPException(422, CONSENT_MESSAGE)
     if body.code not in scheme_map.schemes():
         raise HTTPException(404, "We couldn't find that fund.")
     units = body.units
@@ -105,6 +120,7 @@ def add_holding(body: ManualHolding, user: User = Depends(current_user), db: Ses
     p = _portfolio(db, user) or Portfolio(user_id=user.id, holdings=[])
     p.holdings = (p.holdings or []) + [hold.manual_holding(body.code, units, body.invested)]
     p.updated_at = utcnow()
+    _record_consent(p, user, body.alerts)
     db.add(p)
     db.commit()
     return _review(db, user, p)

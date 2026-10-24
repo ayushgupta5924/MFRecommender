@@ -146,8 +146,8 @@ def logged_in_client(monkeypatch, email):
     monkeypatch.setattr(auth_routes, "send_otp", lambda to, code, purpose, minutes: codes.update({to: code}))
     auth._ip_hits.clear()
     client = TestClient(app)
-    client.post("/api/auth/signup/start", json={"full_name": "Review User", "email": email})
-    client.post("/api/auth/verify", json={"email": email, "code": codes[email], "purpose": "signup"})
+    client.post("/api/auth/signup/start", json={"full_name": "Review User", "email": email, "consent": True})
+    client.post("/api/auth/verify", json={"email": email, "code": codes[email], "purpose": "signup", "consent": True})
     return client
 
 
@@ -160,7 +160,8 @@ def test_review_api_manual_holdings_and_bad_uploads(monkeypatch):
     hits = client.get("/api/funds/search", params={"q": "parag parikh flexi"}).json()
     assert hits and hits[0]["plan"] == "Direct" and hits[0]["option"] == "Growth"
 
-    r = client.post("/api/review/holdings", json={"code": hits[0]["code"], "value": 50_000, "invested": 40_000})
+    r = client.post("/api/review/holdings", json={"code": hits[0]["code"], "value": 50_000, "invested": 40_000,
+                                                          "consent": True})
     assert r.status_code == 200, r.text
     body = r.json()
     assert body["summary"]["value"] == pytest.approx(50_000, rel=1e-6)
@@ -170,5 +171,5 @@ def test_review_api_manual_holdings_and_bad_uploads(monkeypatch):
     assert client.delete(f"/api/review/holdings/{hid}").json()["empty"]
 
     r = client.post("/api/review/upload", files={"file": ("cas.pdf", b"not a pdf", "application/pdf")},
-                    data={"password": "x"})
+                    data={"password": "x", "consent": "true"})
     assert r.status_code == 422 and "PDF" in r.json()["detail"]

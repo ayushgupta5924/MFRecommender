@@ -23,7 +23,7 @@ export default function FundCard({ fund }) {
   const nav   = fund.nav != null ? "₹" + parseFloat(fund.nav).toFixed(2) : "—";
   const alloc = fund.allocation_percentage != null ? Math.round(fund.allocation_percentage) + "%" : "—";
   const rupees = (n) => "₹" + Math.round(n || 0).toLocaleString("en-IN");
-  const investUrl = fund.investment_url || `https://groww.in/search?q=${encodeURIComponent(fund.scheme_name || "mutual fund")}`;
+  const investUrl = fund.investment_url || "https://www.mfcentral.com/";
   const alternatives = fund.alternatives || [];
 
   return (
@@ -105,10 +105,18 @@ export default function FundCard({ fund }) {
           </div>
         )}
 
-        <a className="investBtn" href={investUrl} target="_blank" rel="noopener noreferrer">
-          📈 View on Groww
-        </a>
-        <div className="fundCard__note">Choose the <strong>Direct – Growth</strong> option. Read the scheme documents before investing.</div>
+        <div className="howToInvest">
+          <div className="howToInvest__title">How to invest</div>
+          <div className="fundCard__note">
+            Buy the <strong>Direct – Growth</strong> option on the fund house's own website,{" "}
+            <a href={investUrl} target="_blank" rel="noopener noreferrer">MF Central</a> (run by the registrars CAMS and
+            KFintech), or any platform that offers Direct plans.
+            {fund.isin && <> ISIN: <code>{fund.isin}</code>.</>}
+          </div>
+          <div className="fundCard__note">
+            We earn nothing from where you invest. Read the scheme documents before investing.
+          </div>
+        </div>
       </div>
     </div>
   );

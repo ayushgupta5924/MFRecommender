@@ -22,7 +22,7 @@ def test_portfolio_endpoint():
     assert r.status_code == 200
     body = r.json()
     assert body["funds"] and body["projections"]["expected"]["corpus"] > 0
-    assert all(f["investment_url"].startswith("https://groww.in/") for f in body["funds"])
+    assert all(f["investment_url"] == "https://www.mfcentral.com/" for f in body["funds"])
 
 
 def test_legacy_recommend_endpoint():

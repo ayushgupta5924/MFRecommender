@@ -6,7 +6,7 @@ import "../styles/AccountScreen.css";
 import "../styles/ResultsScreen.css";
 import "../styles/shared.css";
 import { fmt, fmtDate } from "../utils/format";
-import { LAST_PLAN_KEY, save } from "../utils/storage";
+import { LAST_PLAN_KEY, clearPlanData, save } from "../utils/storage";
 import AppBar from "./AppBar";
 
 const GOAL_LABEL = {
@@ -63,6 +63,7 @@ export default function AccountScreen() {
       + "As SEBI requires, a record of the advice we gave you is kept for 5 years and then deleted.")) return;
     try {
       await deleteAccount();
+      clearPlanData();
       setUser(null);
       navigate("/", { replace: true });
     } catch (e) {

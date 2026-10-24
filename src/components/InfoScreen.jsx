@@ -75,7 +75,10 @@ export default function InfoScreen() {
               ))}
               <div className="amberNotice">
                 <span>✨</span>
-                <span className="amberNotice__text">Rankings are rebuilt every night from AMFI's official NAV data.</span>
+                <span className="amberNotice__text">
+                  Rankings are rebuilt every night from AMFI's official NAV data. No AI is used:{" "}
+                  <Link to="/how-advice-works">how our advice works</Link>.
+                </span>
               </div>
             </div>
           )}

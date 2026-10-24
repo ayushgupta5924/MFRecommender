@@ -7,3 +7,12 @@
 .charterList li { margin-bottom: 6px; }
 .charterList .charterList { margin-top: 6px; }
 .charterList--ordered { list-style: lower-roman; }
+
+/* Tables (complaints data, privacy notice): scroll sideways on narrow screens rather than squash. */
+.tableWrap { overflow-x: auto; margin: 4px 0 8px; }
+.dataTable { border-collapse: collapse; width: 100%; font-size: 13px; min-width: 560px; }
+.dataTable--text { min-width: 520px; }
+.dataTable th, .dataTable td { border: 1px solid #e5e5e5; padding: 7px 9px; text-align: left; vertical-align: top; }
+.dataTable th { background: #f5f7fa; font-weight: 700; color: #333; }
+.dataTable__total td { font-weight: 700; background: #fafafa; }
+.tableNote { font-size: 12px; margin-top: 8px; line-height: 1.6; }

@@ -22,6 +22,15 @@ export function save(key, value) {
   } catch { /* storage full or blocked: the app still works, it just won't remember */ }
 }
 
+// Removes questionnaire answers, the last plan and any half-finished login from this browser.
+export function clearPlanData() {
+  try {
+    Object.keys(window.localStorage)
+      .filter((k) => k.startsWith("mfa:"))
+      .forEach((k) => window.localStorage.removeItem(k));
+  } catch { /* storage blocked: nothing was saved anyway */ }
+}
+
 // useState that is restored after a page refresh.
 export function usePersistentState(key, initial) {
   const [value, setValue] = useState(() => load(key, initial));

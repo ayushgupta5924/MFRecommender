@@ -4,3 +4,5 @@
 .footer__line { font-size: 11px; color: #666; line-height: 1.6; }
 .footer__line a { color: #1565c0; }
 .footer__muted { color: #888; margin-top: 6px; }
+
+.footer__links { display: flex; flex-wrap: wrap; gap: 6px 16px; }

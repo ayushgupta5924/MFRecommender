@@ -10,3 +10,5 @@
 .authSwitch { text-align: center; font-size: 14px; color: #555; margin-top: 8px; }
 .authSwitch a, .authCard a { color: #1976d2; font-weight: 600; }
 .authPrivacy { text-align: center; margin-top: 24px; font-size: 12px; }
+.authConsent { margin: 4px 0 16px; }
+.authConsent a { color: #1976d2; font-weight: 600; }

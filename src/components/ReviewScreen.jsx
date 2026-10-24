@@ -1,6 +1,9 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { useAuth } from "../auth";
+import { COMPLIANCE } from "../constants/compliance";
 import { addHolding, deleteReview, getReview, removeHolding, searchFunds, uploadStatement } from "../api";
+import "../styles/InputScreen.css";
 import "../styles/ResultsScreen.css";
 import "../styles/ReviewScreen.css";
 import "../styles/shared.css";
@@ -20,7 +23,38 @@ const signed = (n) => (n == null ? "—" : `${n < 0 ? "−" : "+"}${fmt(Math.abs
 
 // ── Import: CAS upload or manual entry ──────────────────────────────────────
 
+// Consent to store holdings (required) and the alerts opt-in (optional), shown before any import.
+function ImportConsent({ consent, setConsent, alerts, setAlerts }) {
+  const { user } = useAuth();
+  return (
+    <div className="importConsent">
+      <label className="consentRow">
+        <input type="checkbox" checked={consent} onChange={(e) => setConsent(e.target.checked)} />
+        <span>
+          I agree to {COMPLIANCE.brandName} storing my fund holdings and transactions to review them, as described in the{" "}
+          <Link to="/privacy" target="_blank">Privacy Notice</Link>.
+        </span>
+      </label>
+      {!user?.alerts_enabled && (
+        <label className="consentRow">
+          <input type="checkbox" checked={alerts} onChange={(e) => setAlerts(e.target.checked)} />
+          <span>Email me when a fund I hold changes rating (at most once a month). Optional.</span>
+        </label>
+      )}
+    </div>
+  );
+}
+
+function useImportConsent() {
+  const { user, setUser } = useAuth();
+  const [consent, setConsent] = useState(false);
+  const [alerts, setAlerts] = useState(false);
+  const afterImport = () => { if (alerts && user) setUser({ ...user, alerts_enabled: true }); };
+  return { consent, setConsent, alerts, setAlerts, afterImport };
+}
+
 function UploadStatement({ onDone }) {
+  const c = useImportConsent();
   const [file, setFile] = useState(null);
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
@@ -30,7 +64,9 @@ function UploadStatement({ onDone }) {
     e.preventDefault();
     setBusy(true); setError("");
     try {
-      onDone(await uploadStatement(file, password));
+      const result = await uploadStatement(file, password, c.consent, c.alerts);
+      c.afterImport();
+      onDone(result);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -56,19 +92,22 @@ function UploadStatement({ onDone }) {
         <input id="pw" type="password" className="fieldInput plainInput" value={password} autoComplete="off"
           onChange={(e) => setPassword(e.target.value)} placeholder="The password you set when requesting it" />
       </div>
-      <button className="btnBlue" type="submit" disabled={busy || !file}>
+      <ImportConsent {...c} />
+      <button className="btnBlue" type="submit" disabled={busy || !file || !c.consent}>
         {busy ? "Reading your statement…" : "Review my portfolio"}
       </button>
       {error && <div className="errorText">{error}</div>}
       <div className="mutedText privacyNote">
         🔒 We read the funds, units and transactions, then discard the file. Your PAN, address, phone and the PDF
-        itself are never stored, and you can delete your portfolio at any time.
+        itself are never stored, and you can delete your portfolio at any time. A record of the advice we give is
+        kept for 5 years, as SEBI requires.
       </div>
     </form>
   );
 }
 
 function AddFund({ onDone }) {
+  const c = useImportConsent();
   const [q, setQ] = useState("");
   const [hits, setHits] = useState([]);
   const [fund, setFund] = useState(null);
@@ -91,9 +130,11 @@ function AddFund({ onDone }) {
     e.preventDefault();
     setBusy(true); setError("");
     try {
-      const body = { code: fund.code, invested: invested ? Number(invested) : null };
+      const body = { code: fund.code, invested: invested ? Number(invested) : null, consent: c.consent, alerts: c.alerts };
       body[mode === "units" ? "units" : "value"] = Number(amount);
-      onDone(await addHolding(body));
+      const result = await addHolding(body);
+      c.afterImport();
+      onDone(result);
       setFund(null); setQ(""); setAmount(""); setInvested(""); setHits([]);
     } catch (err) {
       setError(err.message);
@@ -151,7 +192,8 @@ function AddFund({ onDone }) {
         <input id="inv" type="number" min="0" step="any" className="fieldInput plainInput" value={invested}
           onChange={(e) => setInvested(e.target.value)} />
       </div>
-      <button className="btnBlue" type="submit" disabled={busy || !(Number(amount) > 0)}>
+      <ImportConsent {...c} />
+      <button className="btnBlue" type="submit" disabled={busy || !(Number(amount) > 0) || !c.consent}>
         {busy ? "Adding…" : "Add fund"}
       </button>
       {error && <div className="errorText">{error}</div>}

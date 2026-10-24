@@ -22,7 +22,7 @@ reviewer = Reviewer(fetch_histories=histories())
 @pytest.fixture
 def investor():
     with SessionLocal() as db:
-        user = User(email=f"alerts{utcnow().timestamp()}@example.com", full_name="Asha Rao")
+        user = User(email=f"alerts{utcnow().timestamp()}@example.com", full_name="Asha Rao", alerts_enabled=True)
         db.add(user)
         db.commit()
         db.add(Portfolio(user_id=user.id, holdings=[holding(TOP), holding(BOTTOM)]))
