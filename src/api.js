@@ -74,6 +74,17 @@ export function uploadStatement(file, password, consent, alerts) {
   return request("/api/review/upload", { form });
 }
 
+// ── Portfolio review without an account: the browser keeps the holdings and sends them back ──
+export const guestReview = (holdings, add) => request("/api/review/guest", { json: { consent: true, holdings, add } });
+
+export function guestUpload(file, password, consent) {
+  const form = new FormData();
+  form.append("file", file);
+  form.append("password", password);
+  form.append("consent", consent ? "true" : "false");
+  return request("/api/review/guest/upload", { form });
+}
+
 // ── Saved plans ──
 export const listPlans = () => request("/api/plans");
 export const getPlan = (id) => request(`/api/plans/${id}`);

@@ -245,3 +245,6 @@ a.investBtn { display: block; text-align: center; text-decoration: none; }
 .howToInvest__title { font-size: 13px; font-weight: 700; color: #1565c0; margin-bottom: 4px; }
 .howToInvest a { color: #1565c0; font-weight: 600; }
 .howToInvest code { font-size: 12px; background: #fff; padding: 1px 4px; border-radius: 4px; }
+.fundCard__infoLink { color: #1565c0; font-weight: 600; text-decoration: none; white-space: nowrap; }
+.fundCard__infoLink:hover { text-decoration: underline; }
+.alternatives__name a { color: inherit; }

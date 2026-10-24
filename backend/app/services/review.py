@@ -210,6 +210,7 @@ class Reviewer:
         picks = [f for f in seasoned if f["code"] != exclude and f["amc"] != amc][:3]
         rank = {f["code"]: i + 1 for i, f in enumerate(funds)}
         return [{"code": f["code"], "name": f["name"], "amc": f["amc"], "rank": rank[f["code"]], "rank_of": len(funds),
+                 "info_url": self.schemes.fund_page_url(f["code"]),
                  "cagr_3y": f.get("cagr_3y"), "cagr_5y": f.get("cagr_5y"), "max_drawdown": f.get("max_drawdown")}
                 for f in picks]
 
@@ -281,6 +282,7 @@ class Reviewer:
                 "code": code, "ids": m["ids"], "source": "manual" if m["sources"] == {"manual"} else "cas",
                 "name": tidy_name(s["name"]).rstrip(". "), "amc": s["amc"], "category": category_label(s), "sleeve": sleeve,
                 "plan": "Direct" if s["direct"] else "Regular", "option": "Growth" if s["growth"] else "IDCW",
+                "info_url": self.schemes.fund_page_url(code),
                 "thematic": bool(THEMATIC_RE.search(s["category"])),
                 "units": round(m["units"], 4), "nav": price, "nav_date": price_date,
                 "value": round(value, 2) if value is not None else None,

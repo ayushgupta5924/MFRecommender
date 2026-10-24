@@ -48,10 +48,12 @@ export default function HowAdviceWorksScreen() {
               Each plan explains which rules shaped it under "Why this mix".
             </li>
             <li>
-              <b>Fund selection:</b> every night, every open-ended Direct-Growth fund published by AMFI is ranked against
-              others in its SEBI category on 3- and 5-year returns, consistency (rolling returns), volatility and its
-              worst fall, using NAV data from AMFI and mfapi.in. The plan picks well-ranked funds and spreads them across
-              fund houses.
+              <b>Fund selection:</b> every night, the open-ended Direct-Growth funds in the 17 SEBI categories we use
+              are ranked against others in their category on 3- and 5-year returns, consistency
+              (rolling returns), volatility and worst fall, using NAV data from AMFI and mfapi.in. A fund needs at least
+              3 years of history to be ranked (1 to 2 years for liquid, money market and other debt funds). Funds in
+              other categories, such as sector, theme and international funds, are not recommended. The plan picks
+              well-ranked funds and spreads them across fund houses.
             </li>
             <li>
               <b>Portfolio review:</b> each fund you hold is rated by where it ranks in its category (top quarter "in form"

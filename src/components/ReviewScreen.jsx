@@ -1,13 +1,16 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../auth";
 import { COMPLIANCE } from "../constants/compliance";
-import { addHolding, deleteReview, getReview, removeHolding, searchFunds, uploadStatement } from "../api";
+import {
+  addHolding, deleteReview, getReview, guestReview, guestUpload, removeHolding, searchFunds, uploadStatement,
+} from "../api";
 import "../styles/InputScreen.css";
 import "../styles/ResultsScreen.css";
 import "../styles/ReviewScreen.css";
 import "../styles/shared.css";
 import { fmt, fmtDate } from "../utils/format";
+import { GUEST_REVIEW_KEY, loadSession, saveSession } from "../utils/storage";
 import AppBar from "./AppBar";
 import Disclaimer from "./Disclaimer";
 
@@ -21,21 +24,74 @@ const LEVEL_ICON = { high: "🔴", medium: "🟠", low: "🔵", good: "✅" };
 const pctF = (v, digits = 1) => (v == null ? "—" : `${v < 0 ? "−" : ""}${Math.abs(v * 100).toFixed(digits)}%`);
 const signed = (n) => (n == null ? "—" : `${n < 0 ? "−" : "+"}${fmt(Math.abs(n))}`);
 
+// ── Where the portfolio lives ───────────────────────────────────────────────
+// Logged in: on the server, in the account. Guest: only in this browser tab, sent to the server for each review.
+
+const accountSource = {
+  guest: false,
+  load: getReview,
+  upload: uploadStatement,
+  add: addHolding,
+  remove: removeHolding,
+  clear: async () => { await deleteReview(); return { empty: true }; },
+};
+
+function keepGuest(r, statement) {
+  const kept = { holdings: r.holdings, statement: r.statement || statement || null };
+  saveSession(GUEST_REVIEW_KEY, kept);
+  return { ...r.review, statement: kept.statement, parse_warnings: r.parse_warnings };
+}
+
+const guestSource = {
+  guest: true,
+  load: async () => {
+    const saved = loadSession(GUEST_REVIEW_KEY, null);
+    if (!saved?.holdings?.length) return { empty: true };
+    return keepGuest(await guestReview(saved.holdings), saved.statement);
+  },
+  upload: async (file, password, consent) => {
+    // A new statement replaces the previous one; funds added by hand stay.
+    const manual = (loadSession(GUEST_REVIEW_KEY, null)?.holdings || []).filter((h) => h.source === "manual");
+    const r = await guestUpload(file, password, consent);
+    if (!manual.length) return keepGuest(r);
+    return { ...keepGuest(await guestReview([...r.holdings, ...manual]), r.statement), parse_warnings: r.parse_warnings };
+  },
+  add: async ({ code, units, value, invested }) => {
+    const saved = loadSession(GUEST_REVIEW_KEY, null);
+    return keepGuest(await guestReview(saved?.holdings || [], { code, units, value, invested }), saved?.statement);
+  },
+  remove: async (id) => {
+    const saved = loadSession(GUEST_REVIEW_KEY, null);
+    const rest = (saved?.holdings || []).filter((h) => h.id !== id);
+    if (!rest.length) return guestSource.clear();
+    return keepGuest(await guestReview(rest), saved.statement);
+  },
+  clear: async () => { saveSession(GUEST_REVIEW_KEY, undefined); return { empty: true }; },
+};
+
 // ── Import: CAS upload or manual entry ──────────────────────────────────────
 
-// Consent to store holdings (required) and the alerts opt-in (optional), shown before any import.
-function ImportConsent({ consent, setConsent, alerts, setAlerts }) {
+// Consent to use the holdings (required) and, with an account, the alerts opt-in (optional), shown before any import.
+function ImportConsent({ consent, setConsent, alerts, setAlerts, guest }) {
   const { user } = useAuth();
   return (
     <div className="importConsent">
       <label className="consentRow">
         <input type="checkbox" checked={consent} onChange={(e) => setConsent(e.target.checked)} />
-        <span>
-          I agree to {COMPLIANCE.brandName} storing my fund holdings and transactions to review them, as described in the{" "}
-          <Link to="/privacy" target="_blank">Privacy Notice</Link>.
-        </span>
+        {guest ? (
+          <span>
+            I agree to {COMPLIANCE.brandName} reading my fund holdings and transactions to review them, and keeping a
+            record of the review as SEBI requires, as described in the{" "}
+            <Link to="/privacy" target="_blank">Privacy Notice</Link>.
+          </span>
+        ) : (
+          <span>
+            I agree to {COMPLIANCE.brandName} storing my fund holdings and transactions to review them, as described in the{" "}
+            <Link to="/privacy" target="_blank">Privacy Notice</Link>.
+          </span>
+        )}
       </label>
-      {!user?.alerts_enabled && (
+      {!guest && !user?.alerts_enabled && (
         <label className="consentRow">
           <input type="checkbox" checked={alerts} onChange={(e) => setAlerts(e.target.checked)} />
           <span>Email me when a fund I hold changes rating (at most once a month). Optional.</span>
@@ -53,7 +109,7 @@ function useImportConsent() {
   return { consent, setConsent, alerts, setAlerts, afterImport };
 }
 
-function UploadStatement({ onDone }) {
+function UploadStatement({ source, onDone }) {
   const c = useImportConsent();
   const [file, setFile] = useState(null);
   const [password, setPassword] = useState("");
@@ -64,7 +120,7 @@ function UploadStatement({ onDone }) {
     e.preventDefault();
     setBusy(true); setError("");
     try {
-      const result = await uploadStatement(file, password, c.consent, c.alerts);
+      const result = await source.upload(file, password, c.consent, c.alerts);
       c.afterImport();
       onDone(result);
     } catch (err) {
@@ -92,21 +148,24 @@ function UploadStatement({ onDone }) {
         <input id="pw" type="password" className="fieldInput plainInput" value={password} autoComplete="off"
           onChange={(e) => setPassword(e.target.value)} placeholder="The password you set when requesting it" />
       </div>
-      <ImportConsent {...c} />
+      <ImportConsent {...c} guest={source.guest} />
       <button className="btnBlue" type="submit" disabled={busy || !file || !c.consent}>
         {busy ? "Reading your statement…" : "Review my portfolio"}
       </button>
       {error && <div className="errorText">{error}</div>}
       <div className="mutedText privacyNote">
         🔒 We read the funds, units and transactions, then discard the file. Your PAN, address, phone and the PDF
-        itself are never stored, and you can delete your portfolio at any time. A record of the advice we give is
-        kept for 5 years, as SEBI requires.
+        itself are never stored.{" "}
+        {source.guest
+          ? "Without an account your holdings stay in this browser tab and are gone when you close it."
+          : "You can delete your portfolio at any time."}{" "}
+        A record of the advice we give is kept for 5 years, as SEBI requires.
       </div>
     </form>
   );
 }
 
-function AddFund({ onDone }) {
+function AddFund({ source, onDone }) {
   const c = useImportConsent();
   const [q, setQ] = useState("");
   const [hits, setHits] = useState([]);
@@ -132,7 +191,7 @@ function AddFund({ onDone }) {
     try {
       const body = { code: fund.code, invested: invested ? Number(invested) : null, consent: c.consent, alerts: c.alerts };
       body[mode === "units" ? "units" : "value"] = Number(amount);
-      const result = await addHolding(body);
+      const result = await source.add(body);
       c.afterImport();
       onDone(result);
       setFund(null); setQ(""); setAmount(""); setInvested(""); setHits([]);
@@ -192,7 +251,7 @@ function AddFund({ onDone }) {
         <input id="inv" type="number" min="0" step="any" className="fieldInput plainInput" value={invested}
           onChange={(e) => setInvested(e.target.value)} />
       </div>
-      <ImportConsent {...c} />
+      <ImportConsent {...c} guest={source.guest} />
       <button className="btnBlue" type="submit" disabled={busy || !(Number(amount) > 0) || !c.consent}>
         {busy ? "Adding…" : "Add fund"}
       </button>
@@ -201,7 +260,7 @@ function AddFund({ onDone }) {
   );
 }
 
-function ImportPanel({ onDone, onCancel }) {
+function ImportPanel({ source, onDone, onCancel }) {
   const [tab, setTab] = useState("upload");
   return (
     <div className="card">
@@ -213,7 +272,7 @@ function ImportPanel({ onDone, onCancel }) {
           ✍️ Add funds by hand
         </button>
       </div>
-      {tab === "upload" ? <UploadStatement onDone={onDone} /> : <AddFund onDone={onDone} />}
+      {tab === "upload" ? <UploadStatement source={source} onDone={onDone} /> : <AddFund source={source} onDone={onDone} />}
       {onCancel && <button className="linkBtn cancelImport" onClick={onCancel}>Cancel</button>}
     </div>
   );
@@ -379,14 +438,19 @@ function HoldingCard({ h, onRemove }) {
               <div className="alts__title">Better-ranked {h.category} funds from other fund houses</div>
               {h.alternatives.map((a) => (
                 <div key={a.code} className="alt">
-                  <div className="alt__name">#{a.rank} {a.name}</div>
+                  <div className="alt__name">
+                    #{a.rank} {a.info_url ? <a href={a.info_url} target="_blank" rel="noopener noreferrer">{a.name} ↗</a> : a.name}
+                  </div>
                   <div className="alt__meta">3 yr {pctF(a.cagr_3y)} · 5 yr {pctF(a.cagr_5y)} · worst fall {pctF(a.max_drawdown, 0)}</div>
                 </div>
               ))}
             </div>
           )}
           <div className="holding__foot">
-            <span className="mutedText">{h.units} units · NAV {h.nav ? `₹${h.nav.toFixed(2)}` : "—"} on {fmtDate(h.nav_date)}</span>
+            <span className="mutedText">
+              {h.units} units · NAV {h.nav ? `₹${h.nav.toFixed(2)}` : "—"} on {fmtDate(h.nav_date)}
+              {h.info_url && <> · <a href={h.info_url} target="_blank" rel="noopener noreferrer">Fund details ↗</a></>}
+            </span>
             {h.source === "manual" && <button className="btnDanger" onClick={() => onRemove(h.ids[0])}>Remove</button>}
           </div>
         </div>
@@ -395,23 +459,41 @@ function HoldingCard({ h, onRemove }) {
   );
 }
 
+function GuestNote() {
+  const { accountsEnabled } = useAuth();
+  return (
+    <div className="mutedText guestNote">
+      You&apos;re not logged in, so this review is kept only in this browser tab and is gone when you close it.
+      {accountsEnabled && <> <Link to="/login?next=%2Freview">Log in</Link> to save it and get alerts when a fund&apos;s rating changes.</>}
+    </div>
+  );
+}
+
 export default function ReviewScreen() {
   const navigate = useNavigate();
+  const { user } = useAuth();
+  // undefined until we know whether someone is logged in.
+  const source = useMemo(() => (user === undefined ? undefined : user ? accountSource : guestSource), [user]);
   const [data, setData] = useState(null);
   const [error, setError] = useState("");
   const [importing, setImporting] = useState(false);
 
   useEffect(() => {
-    getReview().then(setData).catch((e) => setError(e.message));
-  }, []);
+    if (!source) return;
+    let live = true;
+    source.load().then((d) => live && setData(d)).catch((e) => live && setError(e.message));
+    return () => { live = false; };
+  }, [source]);
 
   const replace = (d) => { setData(d); setImporting(false); window.scrollTo(0, 0); };
   const onRemove = async (id) => {
-    try { setData(await removeHolding(id)); } catch (e) { setError(e.message); }
+    try { setData(await source.remove(id)); } catch (e) { setError(e.message); }
   };
   const onDeleteAll = async () => {
-    if (!window.confirm("Delete your imported portfolio? Your account and saved plans stay.")) return;
-    try { await deleteReview(); setData({ empty: true }); } catch (e) { setError(e.message); }
+    const question = source.guest ? "Clear this review from your browser?"
+      : "Delete your imported portfolio? Your account and saved plans stay.";
+    if (!window.confirm(question)) return;
+    try { setData(await source.clear()); } catch (e) { setError(e.message); }
   };
 
   return (
@@ -428,7 +510,8 @@ export default function ReviewScreen() {
               See how each fund ranks in its category, what you've really earned, where you're paying too much, and
               what to fix. Re-checked against fresh data every night.
             </div>
-            <ImportPanel onDone={replace} />
+            {source.guest && <GuestNote />}
+            <ImportPanel source={source} onDone={replace} />
           </>
         )}
 
@@ -440,6 +523,7 @@ export default function ReviewScreen() {
                 <div className="warningBox__item">Figures for those funds may be slightly off.</div>
               </div>
             )}
+            {source.guest && <GuestNote />}
             <Summary data={data} />
             <Insights insights={data.insights} />
             <Health health={data.health} />
@@ -459,10 +543,12 @@ export default function ReviewScreen() {
               {data.statement?.to && ` Statement period ${data.statement.from || "—"} to ${data.statement.to}.`}
             </div>
 
-            {importing ? <ImportPanel onDone={replace} onCancel={() => setImporting(false)} /> : (
+            {importing ? <ImportPanel source={source} onDone={replace} onCancel={() => setImporting(false)} /> : (
               <div className="resultsActions">
                 <button className="btnOutline" onClick={() => setImporting(true)}>📄 Upload a newer statement or add a fund</button>
-                <button className="btnDanger" onClick={onDeleteAll}>Delete my imported portfolio</button>
+                <button className="btnDanger" onClick={onDeleteAll}>
+                  {source.guest ? "Clear this review" : "Delete my imported portfolio"}
+                </button>
               </div>
             )}
             <Disclaimer />

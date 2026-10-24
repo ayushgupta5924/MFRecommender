@@ -1,9 +1,9 @@
-"""Portfolio review and saved plans. Everything here needs a logged-in user."""
+"""Portfolio review and saved plans. Everything here needs a logged-in user, except the guest review."""
 import logging
-from typing import Optional
+from typing import Annotated, List, Literal, Optional, Tuple
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, StringConstraints
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -107,18 +107,9 @@ class ManualHolding(BaseModel):
 def add_holding(body: ManualHolding, user: User = Depends(current_user), db: Session = Depends(get_db)):
     if not body.consent:
         raise HTTPException(422, CONSENT_MESSAGE)
-    if body.code not in scheme_map.schemes():
-        raise HTTPException(404, "We couldn't find that fund.")
-    units = body.units
-    if units is None:
-        if body.value is None:
-            raise HTTPException(422, "Enter the number of units or the current value.")
-        last = navs.latest(navs.histories([body.code]).get(body.code, []))
-        if not last:
-            raise HTTPException(503, "We couldn't get this fund's latest NAV. Enter units instead.")
-        units = body.value / last[0]
+    holding = _manual(body.code, body.units, body.value, body.invested)
     p = _portfolio(db, user) or Portfolio(user_id=user.id, holdings=[])
-    p.holdings = (p.holdings or []) + [hold.manual_holding(body.code, units, body.invested)]
+    p.holdings = (p.holdings or []) + [holding]
     p.updated_at = utcnow()
     _record_consent(p, user, body.alerts)
     db.add(p)
@@ -147,6 +138,103 @@ def delete_portfolio(user: User = Depends(current_user), db: Session = Depends(g
         db.delete(p)
         db.commit()
     return {"deleted": True}
+
+
+# ── Review without an account ───────────────────────────────────────────────
+# Nothing is stored apart from the record of advice SEBI requires: the visitor's browser keeps the holdings
+# and sends them back with each change.
+
+MAX_GUEST_HOLDINGS = 150
+GUEST_CONSENT_MESSAGE = ("Please agree to us reading your fund holdings to review them, and keeping a record of the "
+                         "review as SEBI requires (see the Privacy Notice).")
+
+
+class GuestHolding(BaseModel):
+    id: str = Field(..., min_length=1, max_length=24)
+    source: Literal["cas", "manual"]
+    code: Optional[str] = Field(None, max_length=12)
+    isin: Optional[str] = Field(None, max_length=12)
+    name: str = Field(..., max_length=200)
+    amc: Optional[str] = Field(None, max_length=120)
+    units: float = Field(..., gt=0, le=1e10)
+    cost: Optional[float] = Field(None, ge=0, le=1e12)
+    cas_nav: Optional[float] = Field(None, gt=0, le=1e7)
+    cas_nav_date: Optional[str] = Field(None, max_length=10)
+    open_units: float = Field(0.0, ge=0, le=1e10)
+    # [iso date, type, amount, units], as parse_cas produces them.
+    txns: List[Tuple[Annotated[str, StringConstraints(pattern=r"^\d{4}-\d{2}-\d{2}")], Annotated[str, Field(max_length=40)],
+                     Optional[float], Optional[float]]] = Field(default_factory=list, max_length=5000)
+
+
+class GuestAdd(BaseModel):
+    code: str
+    units: Optional[float] = Field(None, gt=0, le=1e9)
+    value: Optional[float] = Field(None, gt=0, le=1e11)
+    invested: Optional[float] = Field(None, ge=0, le=1e11)
+
+
+class GuestReview(BaseModel):
+    consent: bool = False
+    holdings: List[GuestHolding] = Field(default_factory=list, max_length=MAX_GUEST_HOLDINGS)
+    add: Optional[GuestAdd] = None
+
+
+def _manual(code: str, units: Optional[float], value: Optional[float], invested: Optional[float]) -> dict:
+    if code not in scheme_map.schemes():
+        raise HTTPException(404, "We couldn't find that fund.")
+    if units is None:
+        if value is None:
+            raise HTTPException(422, "Enter the number of units or the current value.")
+        last = navs.latest(navs.histories([code]).get(code, []))
+        if not last:
+            raise HTTPException(503, "We couldn't get this fund's latest NAV. Enter units instead.")
+        units = value / last[0]
+    return hold.manual_holding(code, units, invested)
+
+
+def _guest_review(db: Session, holdings: List[dict]) -> dict:
+    result = reviewer.review(holdings)
+    advice_log.safely(advice_log.record_review, db, None, holdings, result)
+    return {"review": result, "holdings": holdings}
+
+
+@router.post("/review/guest/upload")
+async def guest_upload(file: UploadFile = File(...), password: str = Form(""), consent: bool = Form(False),
+                       db: Session = Depends(get_db)):
+    if not consent:
+        raise HTTPException(422, GUEST_CONSENT_MESSAGE)
+    pdf = await file.read(hold.MAX_PDF_BYTES + 1)
+    try:
+        parsed = hold.parse_cas(pdf, password)
+    except hold.StatementError as e:
+        raise HTTPException(422, str(e))
+    except Exception:
+        logger.exception("CAS parsing failed")
+        raise HTTPException(422, "We couldn't read this statement. Make sure it's a CAMS or KFintech CAS PDF.")
+    finally:
+        del pdf
+    out = _guest_review(db, parsed["holdings"])
+    out["statement"] = {"from": parsed["statement_from"], "to": parsed["statement_to"],
+                        "type": parsed["statement_type"]}
+    out["parse_warnings"] = parsed["warnings"]
+    return out
+
+
+@router.post("/review/guest")
+def guest_review(body: GuestReview, db: Session = Depends(get_db)):
+    if not body.consent:
+        raise HTTPException(422, GUEST_CONSENT_MESSAGE)
+    holdings = [h.model_dump() for h in body.holdings]
+    for h in holdings:
+        h["txns"] = [list(t) for t in h["txns"]]
+    if body.add:
+        if len(holdings) >= MAX_GUEST_HOLDINGS:
+            raise HTTPException(422, f"You can review up to {MAX_GUEST_HOLDINGS} funds at a time.")
+        a = body.add
+        holdings.append(_manual(a.code, a.units, a.value, a.invested))
+    if not holdings:
+        raise HTTPException(422, "Add at least one fund to review.")
+    return _guest_review(db, holdings)
 
 
 @router.get("/funds/search")

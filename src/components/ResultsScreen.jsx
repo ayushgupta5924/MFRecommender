@@ -136,7 +136,6 @@ function WhatIf({ last, setLast }) {
 
 export default function ResultsScreen() {
   const navigate = useNavigate();
-  const { accountsEnabled } = useAuth();
   const [last, setLast] = useState(() => load(LAST_PLAN_KEY, null));
   if (!last?.results) return <Navigate to="/plan" replace />;
   const results = last.results;
@@ -278,7 +277,7 @@ export default function ResultsScreen() {
 
         <div className="resultsActions">
           <SavePlan last={last} setLast={setLast} />
-          {accountsEnabled && <Link className="btnOutline" to="/review">📊 Review the funds you already own</Link>}
+          <Link className="btnOutline" to="/review">📊 Review the funds you already own</Link>
           <button className="btnBlue" onClick={onBack}>← Adjust Profile</button>
         </div>
       </div>

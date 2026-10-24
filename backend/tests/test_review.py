@@ -173,3 +173,44 @@ def test_review_api_manual_holdings_and_bad_uploads(monkeypatch):
     r = client.post("/api/review/upload", files={"file": ("cas.pdf", b"not a pdf", "application/pdf")},
                     data={"password": "x", "consent": "true"})
     assert r.status_code == 422 and "PDF" in r.json()["detail"]
+
+
+def test_guest_review_needs_no_account_and_stores_only_the_advice_record(monkeypatch):
+    from app.db import SessionLocal
+    from app.db.tables import AdviceRecord, Portfolio
+    monkeypatch.setattr(navs, "histories", histories())
+    client = TestClient(app)
+    code = ranked("flexi_cap", "top")["code"]
+    with SessionLocal() as db:
+        records_before = db.query(AdviceRecord).filter(AdviceRecord.user_id.is_(None),
+                                                       AdviceRecord.kind == "review").count()
+        portfolios_before = db.query(Portfolio).count()
+
+    add = {"code": code, "value": 50_000, "invested": 40_000}
+    assert client.post("/api/review/guest", json={"add": add}).status_code == 422          # no consent
+    r = client.post("/api/review/guest", json={"consent": True, "add": add})
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["review"]["summary"]["value"] == pytest.approx(50_000, rel=1e-6)
+    kept = body["holdings"]
+    assert len(kept) == 1 and kept[0]["source"] == "manual" and kept[0]["code"] == code
+
+    # The browser sends its holdings back with the next change, including a statement-style one with transactions.
+    cas = holding(ranked("small_cap", "bottom")["code"], units=10.0, txns=sip(date(2024, 1, 1), 3), cost=3000.0)
+    r = client.post("/api/review/guest", json={"consent": True, "holdings": kept + [cas]})
+    assert r.status_code == 200, r.text
+    assert {h["code"] for h in r.json()["review"]["holdings"]} == {code, cas["code"]}
+
+    bad = dict(cas, txns=[["not-a-date", "PURCHASE", 1.0, 1.0]])
+    assert client.post("/api/review/guest", json={"consent": True, "holdings": [bad]}).status_code == 422
+    assert client.post("/api/review/guest", json={"consent": True, "holdings": []}).status_code == 422
+    assert client.post("/api/review/guest", json={"consent": True, "add": {"code": "nope", "units": 1}}).status_code == 404
+
+    r = client.post("/api/review/guest/upload", files={"file": ("cas.pdf", b"not a pdf", "application/pdf")},
+                    data={"password": "x", "consent": "true"})
+    assert r.status_code == 422 and "PDF" in r.json()["detail"]
+
+    with SessionLocal() as db:
+        assert db.query(AdviceRecord).filter(AdviceRecord.user_id.is_(None),
+                                             AdviceRecord.kind == "review").count() == records_before + 2
+        assert db.query(Portfolio).count() == portfolios_before
