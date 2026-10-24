@@ -124,3 +124,9 @@
 .realtimeBox__icon    { font-size: 36px; }
 .realtimeBox__title   { font-size: 17px; font-weight: 700; color: #111; }
 .realtimeBox__subtitle{ font-size: 13px; color: #666; margin-top: 3px; }
+button.expansionHeader { width: 100%; border: none; text-align: left; font: inherit; }
+
+@media (max-width: 560px) {
+  .factorGrid { grid-template-columns: 1fr; }
+  .infoHero__title { font-size: 30px; }
+}

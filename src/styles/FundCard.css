@@ -190,3 +190,53 @@
 }
 
 .investBtn:hover { background: #00996f; }
+.fundCard__badges { flex-wrap: wrap; }
+.fundCard__rankPill,
+.fundCard__lockPill {
+  display: inline-flex;
+  padding: 3px 10px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+  background: #fff;
+  border: 1px solid #ddd;
+  color: #555;
+}
+.fundCard__lockPill { border-color: #ffe082; background: #fff8e1; color: #7a5c00; }
+.fundCard__amc { font-size: 12px; color: #777; margin-top: 4px; }
+
+.investBox__share { margin-left: auto; font-size: 12px; color: #7a5c00; }
+
+.returnBox__median { font-size: 10px; color: #999; margin-top: 3px; }
+.metricsGrid--three { grid-template-columns: repeat(3, 1fr); margin: 12px 0 0; }
+
+.alternatives { margin-top: 10px; }
+.alternatives__toggle {
+  background: none;
+  border: none;
+  color: #1976d2;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 4px 0;
+}
+.alternatives__row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 10px;
+  background: #f7f8fa;
+  border-radius: 8px;
+  margin-top: 6px;
+}
+.alternatives__name { font-size: 13px; font-weight: 600; color: #333; }
+.alternatives__amc  { font-size: 11px; color: #888; }
+.alternatives__ret  { font-size: 13px; font-weight: 700; color: #0a8f4f; white-space: nowrap; }
+
+a.investBtn { display: block; text-align: center; text-decoration: none; }
+.fundCard__note { font-size: 11px; color: #888; text-align: center; margin-top: 8px; }
+
+@media (max-width: 480px) {
+  .metricsGrid--three { grid-template-columns: 1fr 1fr; }
+}

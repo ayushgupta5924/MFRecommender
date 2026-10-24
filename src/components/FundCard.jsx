@@ -1,27 +1,30 @@
-import { FALLBACK_URL, INVEST_URLS } from "../constants/investUrls";
+import { useState } from "react";
 import "../styles/FundCard.css";
 import "../styles/shared.css";
 import { getCategoryColor } from "../utils/colors";
+import { fmtDate, pct } from "../utils/format";
 
-export default function FundCard({ fund }) {
-  const risk      = fund.risk_level || "";
-  const color     = getCategoryColor(risk);
-  const nav       = fund.nav != null ? "₹" + parseFloat(fund.nav).toFixed(2) : "—";
-  const alloc     = fund.allocation_percentage != null ? Math.round(fund.allocation_percentage) + "%" : "—";
-  const investAmt = fund.allocation_amount != null ? "₹" + Math.round(fund.allocation_amount).toLocaleString("en-IN") : "—";
-  const r1        = fund.returns_1y ?? null;
-  const r3        = fund.returns_3y ?? null;
-  const r5        = fund.returns_5y ?? null;
-  const investUrl = INVEST_URLS[fund.scheme_code] || FALLBACK_URL;
-
-  const RetVal = ({ period, val }) => val == null ? null : (
+function RetVal({ period, val, median }) {
+  return (
     <div className="returnBox">
       <div className="returnBox__period">{period}</div>
-      <div className={`returnBox__value ${val >= 0 ? "returnBox__value--positive" : "returnBox__value--negative"}`}>
-        {val >= 0 ? "↑" : "↓"}{parseFloat(val).toFixed(1)}%
+      <div className={`returnBox__value ${val == null ? "" : val >= 0 ? "returnBox__value--positive" : "returnBox__value--negative"}`}>
+        {val == null ? "—" : pct(val)}
       </div>
+      {median != null && <div className="returnBox__median">Category {pct(median)}</div>}
     </div>
   );
+}
+
+export default function FundCard({ fund }) {
+  const [showAlternatives, setShowAlternatives] = useState(false);
+  const risk  = fund.risk_level || "";
+  const color = getCategoryColor(risk);
+  const nav   = fund.nav != null ? "₹" + parseFloat(fund.nav).toFixed(2) : "—";
+  const alloc = fund.allocation_percentage != null ? Math.round(fund.allocation_percentage) + "%" : "—";
+  const sip   = "₹" + Math.round(fund.monthly_sip_amount || fund.allocation_amount || 0).toLocaleString("en-IN");
+  const investUrl = fund.investment_url || `https://groww.in/search?q=${encodeURIComponent(fund.scheme_name || "mutual fund")}`;
+  const alternatives = fund.alternatives || [];
 
   return (
     <div className="fundCard">
@@ -29,38 +32,44 @@ export default function FundCard({ fund }) {
         <div className="fundCard__badges">
           <span className="fundCard__pill" style={{ background: color }}>{fund.category || "Fund"}</span>
           <span className="fundCard__riskPill" style={{ color, borderColor: color + "44" }}>{risk || "—"} Risk</span>
+          {fund.rank != null && (
+            <span className="fundCard__rankPill">#{fund.rank} of {fund.rank_of}</span>
+          )}
+          {fund.lock_in_years > 0 && <span className="fundCard__lockPill">🔒 {fund.lock_in_years}-yr lock-in</span>}
         </div>
         <div className="fundCard__name">{fund.scheme_name || "Unknown Fund"}</div>
+        <div className="fundCard__amc">{fund.amc} · Direct Plan · Growth</div>
       </div>
 
       <div className="fundCard__body">
-        <div className="metricsGrid">
-          {[["Current NAV", nav], ["Allocation", alloc]].map(([lbl, val]) => (
-            <div key={lbl} className="metricBox">
-              <div className="metricBox__label">{lbl}</div>
-              <div className="metricBox__value">{val}</div>
-            </div>
-          ))}
-        </div>
-
         <div className="investBox">
           <span>💰</span>
-          <span className="investBox__amount">
-            Monthly SIP: ₹{Math.round(fund.monthly_sip_amount || fund.allocation_amount).toLocaleString("en-IN")}
-          </span>
+          <span className="investBox__amount">Monthly SIP: {sip}</span>
+          <span className="investBox__share">{alloc} of plan</span>
         </div>
 
-        {(r1 != null || r3 != null || r5 != null) && (
-          <>
-            <hr className="divider" />
-            <div className="returnsTitle">Historical Returns</div>
-            <div className="returnsGrid">
-              <RetVal period="1Y" val={r1} />
-              <RetVal period="3Y" val={r3} />
-              <RetVal period="5Y" val={r5} />
-            </div>
-          </>
-        )}
+        <hr className="divider" />
+        <div className="returnsTitle">Returns (annualised)</div>
+        <div className="returnsGrid">
+          <RetVal period="1Y" val={fund.returns_1y} />
+          <RetVal period="3Y" val={fund.returns_3y} median={fund.category_median_3y} />
+          <RetVal period="5Y" val={fund.returns_5y} median={fund.category_median_5y} />
+        </div>
+
+        <div className="metricsGrid metricsGrid--three">
+          <div className="metricBox">
+            <div className="metricBox__label">NAV ({fmtDate(fund.nav_date)})</div>
+            <div className="metricBox__value">{nav}</div>
+          </div>
+          <div className="metricBox">
+            <div className="metricBox__label">Volatility</div>
+            <div className="metricBox__value">{pct(fund.volatility)}</div>
+          </div>
+          <div className="metricBox">
+            <div className="metricBox__label">Worst fall (5y)</div>
+            <div className="metricBox__value">{pct(fund.max_drawdown)}</div>
+          </div>
+        </div>
 
         {fund.reason && (
           <>
@@ -73,9 +82,29 @@ export default function FundCard({ fund }) {
           </>
         )}
 
-        <button className="investBtn" onClick={() => window.open(investUrl, "_blank")}>
-          📈 Invest on Groww
-        </button>
+        {alternatives.length > 0 && (
+          <div className="alternatives">
+            <button type="button" className="alternatives__toggle" onClick={() => setShowAlternatives((v) => !v)}>
+              {showAlternatives ? "▾" : "▸"} {alternatives.length} close alternative{alternatives.length > 1 ? "s" : ""}
+            </button>
+            {showAlternatives && alternatives.map((a) => (
+              <div key={a.scheme_code} className="alternatives__row">
+                <div>
+                  <div className="alternatives__name">{a.scheme_name}</div>
+                  <div className="alternatives__amc">{a.amc}</div>
+                </div>
+                <div className="alternatives__ret">
+                  {a.returns_5y != null ? `5Y ${pct(a.returns_5y)}` : `3Y ${pct(a.returns_3y)}`}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <a className="investBtn" href={investUrl} target="_blank" rel="noopener noreferrer">
+          📈 View on Groww
+        </a>
+        <div className="fundCard__note">Choose the <strong>Direct – Growth</strong> option. Read the scheme documents before investing.</div>
       </div>
     </div>
   );
