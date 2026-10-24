@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, Navigate, useNavigate } from "react-router-dom";
-import { savePlan } from "../api";
+import { getPortfolio, savePlan } from "../api";
 import { useAuth } from "../auth";
 import "../styles/FundCard.css";
 import "../styles/ResultsScreen.css";
@@ -57,6 +57,83 @@ function SavePlan({ last, setLast }) {
   );
 }
 
+// Re-run the plan with different amounts or timeline. The questionnaire answers stay as they were;
+// "Reset" goes back to them.
+function WhatIf({ last, setLast }) {
+  // The numbers of the plan as first built from the questionnaire.
+  const base = last.base || { sip: last.results.monthly_investment || 0, lump: last.results.lump_sum || 0,
+                              years: last.results.horizon_years };
+  const [open, setOpen] = useState(false);
+  const [sip, setSip] = useState(last.results.monthly_investment || 0);
+  const [lump, setLump] = useState(last.results.lump_sum || 0);
+  const [years, setYears] = useState(last.results.horizon_years);
+  const [state, setState] = useState({ busy: false, error: "" });
+
+  const sipError = sip > 0 && sip < 500 ? "The minimum SIP is ₹500." : "";
+  const lumpError = lump > 0 && lump < 1000 ? "The minimum one-time amount is ₹1,000." : "";
+  const emptyError = !sip && !lump ? "Enter a monthly SIP or a one-time amount." : "";
+  const problem = sipError || lumpError || emptyError;
+
+  useEffect(() => {
+    // Only re-run when the numbers differ from the plan on screen.
+    const r = last.results;
+    if (problem || (sip === r.monthly_investment && lump === (r.lump_sum || 0) && years === r.horizon_years)) return undefined;
+    const t = setTimeout(async () => {
+      setState({ busy: true, error: "" });
+      const payload = { ...last.payload, monthly_budget: sip || null, lump_sum: lump || null, horizon_years: years,
+                        target_years: last.payload.target_amount ? years : null };
+      try {
+        const results = await getPortfolio(payload);
+        const next = { payload, results, savedId: null, base };
+        save(LAST_PLAN_KEY, next);
+        setLast(next);
+        setState({ busy: false, error: "" });
+      } catch (e) {
+        setState({ busy: false, error: e.message });
+      }
+    }, 600);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sip, lump, years]);
+
+  const reset = () => {
+    setSip(base.sip);
+    setLump(base.lump);
+    setYears(base.years);
+  };
+  const maxSip = Math.max(100_000, Math.ceil(base.sip * 2 / 1000) * 1000);
+
+  if (!open) {
+    return <button className="btnOutline whatIfToggle" onClick={() => setOpen(true)}>🎚️ Try different numbers</button>;
+  }
+  return (
+    <div className="card whatIf">
+      <div className="whatIf__head">
+        <div className="card__title" style={{ marginBottom: 0 }}>Try different numbers</div>
+        <span className="mutedText">{state.busy ? "Updating…" : ""}</span>
+      </div>
+      <label className="whatIf__row">
+        <span>Monthly SIP <b>{sip ? fmt(sip) : "None"}</b></span>
+        <input type="range" min="0" max={maxSip} step="500" value={sip} onChange={(e) => setSip(Number(e.target.value))} />
+      </label>
+      <label className="whatIf__row">
+        <span>Timeline <b>{years} year{years !== 1 ? "s" : ""}</b></span>
+        <input type="range" min="1" max="40" step="1" value={years} onChange={(e) => setYears(Number(e.target.value))} />
+      </label>
+      <div className="whatIf__row">
+        <label htmlFor="whatIfLump">One-time amount</label>
+        <input id="whatIfLump" type="number" min="0" step="1000" className="fieldInput whatIf__input" value={lump || ""}
+          placeholder="0" onChange={(e) => setLump(Number(e.target.value) || 0)} />
+      </div>
+      {(problem || state.error) && <div className="errorText">{problem || state.error}</div>}
+      <div className="whatIf__foot">
+        <span className="mutedText">Your risk profile and goal stay the same. A shorter timeline can lower equity.</span>
+        <button className="linkBtn" onClick={reset}>Reset to my answers</button>
+      </div>
+    </div>
+  );
+}
+
 export default function ResultsScreen() {
   const navigate = useNavigate();
   const { accountsEnabled } = useAuth();
@@ -82,10 +159,18 @@ export default function ResultsScreen() {
         <div className="portfolioHero__desc">{results.portfolio_description}</div>
 
         <div className="sipStrip">
-          <div className="sipStrip__item">
-            <div className="sipStrip__label">Monthly SIP</div>
-            <div className="sipStrip__value">{fmt(results.monthly_investment)}</div>
-          </div>
+          {results.monthly_investment > 0 && (
+            <div className="sipStrip__item">
+              <div className="sipStrip__label">Monthly SIP</div>
+              <div className="sipStrip__value">{fmt(results.monthly_investment)}</div>
+            </div>
+          )}
+          {results.lump_sum > 0 && (
+            <div className="sipStrip__item">
+              <div className="sipStrip__label">One-time</div>
+              <div className="sipStrip__value">{fmt(results.lump_sum)}</div>
+            </div>
+          )}
           <div className="sipStrip__item">
             <div className="sipStrip__label">Timeline</div>
             <div className="sipStrip__value">{years} yrs</div>
@@ -104,6 +189,8 @@ export default function ResultsScreen() {
       </div>
 
       <div className="body">
+        <WhatIf last={last} setLast={setLast} />
+
         {/* Asset mix */}
         <div className="card">
           <div className="card__title">Asset mix</div>

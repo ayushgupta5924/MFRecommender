@@ -20,6 +20,10 @@ SCENARIO_SHIFT = {
     "expected":    {"equity": 0.0,   "hybrid": 0.0,    "debt": 0.0},
     "optimistic":  {"equity": +0.03, "hybrid": +0.02,  "debt": +0.0075},
 }
+MIN_LUMP_SUM = 1_000                  # common minimum for a one-time purchase
+LUMP_SUM_FUNDS_DIVISOR = 20           # a one-time amount supports about as many funds as a SIP 1/20th its size
+STP_THRESHOLD = 100_000               # suggest phasing in equity above this much
+
 # Prefer funds that have been through at least one full market cycle.
 PREFERRED_YEARS = {"equity": 5, "hybrid": 5, "debt": 3}
 # Rough equity share inside each hybrid category, used only to explain the total.
@@ -69,6 +73,10 @@ def sip_future_value(monthly: float, years: int, annual: float) -> float:
     return monthly * ((1 + i) ** n - 1) / i * (1 + i)
 
 
+def lump_future_value(amount: float, years: int, annual: float) -> float:
+    return amount * (1 + annual) ** years if amount > 0 and years > 0 else max(amount, 0.0)
+
+
 def required_sip(target: float, years: int, annual: float) -> float:
     unit = sip_future_value(1, years, annual)
     return target / unit if unit > 0 else 0.0
@@ -97,34 +105,44 @@ class RecommendationEngine:
         warnings: List[str] = []
 
         # 1. Decide the monthly amount. The investor's own budget always wins;
-        #    a target only tells us whether that budget is enough.
+        #    a target only tells us whether that budget (plus any one-time amount) is enough.
         budget = profile.get_budget()
+        lump = float(profile.lump_sum or 0)
+        if 0 < lump < MIN_LUMP_SUM:
+            raise ValueError(f"The minimum one-time amount is ₹{MIN_LUMP_SUM:,}.")
+        # ELSS's 80C limit is yearly, so a one-time amount counts towards it like a year of SIPs.
+        yearly_view = budget + lump / 12
         provisional_mix, provisional_slots = alloc.build_slots(
-            score, horizon, profile.life_stage, profile.goal, max(budget, 10_000), profile.tax_regime, fixed)
+            score, horizon, profile.life_stage, profile.goal, max(yearly_view, 10_000), profile.tax_regime, fixed)
         expected_rate = self._portfolio_rate(provisional_mix, provisional_slots, data, "expected")
-        sip_needed = math.ceil(required_sip(target, horizon, expected_rate) / 100) * 100 if target else None
-        if budget <= 0:
+        sip_needed = self._sip_needed(target, lump, horizon, expected_rate) if target else None
+        if budget <= 0 and not lump:
             if not sip_needed:
-                raise ValueError("Enter a monthly amount or a target corpus.")
+                raise ValueError("Enter a monthly amount, a one-time amount or a target.")
             budget = max(float(sip_needed), alloc.MIN_SIP)
-        if budget < alloc.MIN_SIP:
+        if 0 < budget < alloc.MIN_SIP:
             raise ValueError(f"The minimum monthly SIP is ₹{alloc.MIN_SIP}.")
 
-        # 2. Allocation for the real budget.
-        mix, slots = alloc.build_slots(score, horizon, profile.life_stage, profile.goal, budget, profile.tax_regime, fixed)
+        # 2. Allocation. The SIP sets how many funds there are (each SIP must be at least
+        #    ₹500); with no SIP, the one-time amount does.
+        sizing = budget if budget > 0 else lump / LUMP_SUM_FUNDS_DIVISOR
+        base = budget if budget > 0 else lump
+        mix, slots = alloc.build_slots(score, horizon, profile.life_stage, profile.goal, yearly_view,
+                                       profile.tax_regime, fixed)
         hybrid_key = alloc.hybrid_bucket(max(mix["equity"], 0.2), score, horizon)
-        slots = alloc.consolidate(slots, budget, hybrid_key, protected=["elss"])
-        amounts = alloc.to_amounts(slots, budget)
+        slots = alloc.consolidate(slots, sizing, hybrid_key, protected=["elss"])
+        amounts = alloc.to_amounts(slots, base)
 
         # 3. Pick the best fund in each bucket for this investor.
         funds = self._select_funds(slots, amounts, data, scoring_profile, profile, horizon)
-        self._renormalise(funds, budget)
+        self._renormalise(funds, base)
+        self._split_lump_sum(funds, budget, lump)
 
         # 4. Projections at three return scenarios.
         projections = {}
         for scenario in SCENARIO_SHIFT:
             rate = self._portfolio_rate(mix, slots, data, scenario)
-            corpus = sip_future_value(budget, horizon, rate)
+            corpus = sip_future_value(budget, horizon, rate) + lump_future_value(lump, horizon, rate)
             projections[scenario] = Projection(
                 annual_return=round(rate * 100, 2),
                 corpus=round(corpus),
@@ -134,11 +152,15 @@ class RecommendationEngine:
 
         goal_status = shortfall = None
         if target:
-            sip_needed = math.ceil(required_sip(target, horizon, expected) / 100) * 100
+            sip_needed = self._sip_needed(target, lump, horizon, expected)
             goal_status = "on_track" if projections["expected"].corpus >= target else "shortfall"
             if goal_status == "shortfall":
                 shortfall = float(max(sip_needed - budget, 0))
 
+        if lump and mix["equity"] * lump >= STP_THRESHOLD:
+            warnings.append(f"Consider moving the equity part of your one-time amount (about "
+                            f"₹{mix['equity'] * lump:,.0f}) in over 6-12 months through an STP from a liquid fund, "
+                            "so it doesn't all go in just before a fall.")
         warnings += self._suitability_warnings(profile, budget, limited_by)
         warnings += self._warnings(profile, horizon, funds, data)
 
@@ -156,10 +178,11 @@ class RecommendationEngine:
             expected_return=round(expected * 100, 2),
             funds=funds,
             monthly_investment=budget,
+            lump_sum=lump,
             horizon_years=horizon,
-            total_invested=budget * 12 * horizon,
+            total_invested=budget * 12 * horizon + lump,
             asset_mix=actual_mix,
-            mix_reasons=self._mix_reasons(profile, score, label, horizon, fixed, mix, actual_mix, budget, len(funds)),
+            mix_reasons=self._mix_reasons(profile, score, label, horizon, fixed, mix, actual_mix, budget, lump, len(funds)),
             projections=projections,
             goal_status=goal_status,
             shortfall_monthly=shortfall,
@@ -173,8 +196,30 @@ class RecommendationEngine:
         )
 
     @staticmethod
+    def _sip_needed(target: float, lump: float, horizon: int, rate: float) -> int:
+        """Monthly SIP that, with the one-time amount, reaches the target; 0 if the one-time amount is enough."""
+        remaining = target - lump_future_value(lump, horizon, rate)
+        return math.ceil(required_sip(remaining, horizon, rate) / 100) * 100 if remaining > 0 else 0
+
+    @staticmethod
+    def _split_lump_sum(funds: List[FundRecommendation], budget: float, lump: float) -> None:
+        """Give each fund its share of the one-time amount, in the same proportions as the plan."""
+        if not funds or not lump:
+            return
+        if budget <= 0:
+            # One-time only: the amounts computed so far are the one-time amounts.
+            for f in funds:
+                f.lump_sum_amount, f.allocation_amount, f.monthly_sip_amount = f.allocation_amount, 0.0, 0.0
+            return
+        step = 100 if lump >= 100 * len(funds) else 1
+        for f in funds:
+            f.lump_sum_amount = float(round(lump * f.allocation_percentage / 100 / step) * step)
+        funds[0].lump_sum_amount += lump - sum(f.lump_sum_amount for f in funds)
+
+    @staticmethod
     def _mix_reasons(profile: UserProfile, score: float, label: str, horizon: int, fixed: bool,
-                     mix: Dict[str, float], actual: Dict[str, float], budget: float, n_funds: int) -> List[str]:
+                     mix: Dict[str, float], actual: Dict[str, float], budget: float, lump: float,
+                     n_funds: int) -> List[str]:
         """Why the plan holds this much equity, hybrid and debt, using the same rules that built it."""
         cap, cap_reason = alloc.equity_limit(horizon, profile.life_stage, profile.goal)
         if cap == 0:
@@ -198,8 +243,10 @@ class RecommendationEngine:
         if mix["debt"] > 0:
             out.append(f"The remaining {mix['debt']:.0%} is in debt funds for stability.")
         if any(abs(actual[k] - mix[k] * 100) >= 5 for k in mix):
-            out.append(f"With {n_funds} fund{'s' if n_funds != 1 else ''} at a ₹{budget:,.0f} monthly SIP "
-                       "(each SIP must be at least ₹500), some categories were combined, so the final mix "
+            amount = (f"a ₹{budget:,.0f} monthly SIP (each SIP must be at least ₹500)" if budget > 0
+                      else f"a ₹{lump:,.0f} one-time amount")
+            out.append(f"With {n_funds} fund{'s' if n_funds != 1 else ''} for {amount}, "
+                       "some categories were combined, so the final mix "
                        "differs a little from this.")
         return out
 
