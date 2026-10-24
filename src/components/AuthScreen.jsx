@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, Navigate, useNavigate, useSearchParams } from "react-router-dom";
 import { startLogin, startSignup, verifyCode } from "../api";
-import { useAuth } from "../auth";
+import { ComingSoon, useAuth } from "../auth";
 import "../styles/AuthScreen.css";
 import "../styles/shared.css";
 import { usePersistentState } from "../utils/storage";
@@ -17,7 +17,7 @@ export default function AuthScreen({ mode }) {
   const navigate = useNavigate();
   const [params] = useSearchParams();
   const next = safeNext(params.get("next"));
-  const { user, setUser } = useAuth();
+  const { user, setUser, accountsEnabled } = useAuth();
 
   // Kept across a refresh so someone waiting for the email doesn't have to start over.
   const [pending, setPending] = usePersistentState("mfa:auth", null);
@@ -40,6 +40,7 @@ export default function AuthScreen({ mode }) {
   }, [onCodeStep]);
 
   if (user) return <Navigate to={next} replace />;
+  if (accountsEnabled === false) return <ComingSoon />;
 
   const send = async (e) => {
     e?.preventDefault();

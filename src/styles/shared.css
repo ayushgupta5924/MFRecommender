@@ -163,3 +163,7 @@ body {
 .btnDanger { background: none; border: none; color: #c62828; font: inherit; font-size: 14px; font-weight: 600; cursor: pointer; padding: 8px 0; }
 .successText { color: #2e7d32; font-size: 13px; margin-top: 10px; line-height: 1.5; }
 .mutedText { color: #888; font-size: 13px; line-height: 1.5; }
+
+.comingSoon { text-align: center; padding-top: 64px; max-width: 480px; }
+.comingSoon__icon { font-size: 48px; margin-bottom: 12px; }
+.comingSoon .btnBlue { text-decoration: none; margin-top: 8px; }

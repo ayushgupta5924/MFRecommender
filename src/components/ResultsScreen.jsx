@@ -20,9 +20,10 @@ const SCENARIOS = [
 ];
 
 function SavePlan({ last, setLast }) {
-  const { user } = useAuth();
+  const { user, accountsEnabled } = useAuth();
   const [state, setState] = useState({ saving: false, error: "" });
 
+  if (!accountsEnabled) return null;
   if (user === null) {
     return (
       <Link className="btnOutline" to={`/login?next=${encodeURIComponent("/plan/results")}`}>
@@ -58,6 +59,7 @@ function SavePlan({ last, setLast }) {
 
 export default function ResultsScreen() {
   const navigate = useNavigate();
+  const { accountsEnabled } = useAuth();
   const [last, setLast] = useState(() => load(LAST_PLAN_KEY, null));
   if (!last?.results) return <Navigate to="/plan" replace />;
   const results = last.results;
@@ -188,7 +190,7 @@ export default function ResultsScreen() {
 
         <div className="resultsActions">
           <SavePlan last={last} setLast={setLast} />
-          <Link className="btnOutline" to="/review">📊 Review the funds you already own</Link>
+          {accountsEnabled && <Link className="btnOutline" to="/review">📊 Review the funds you already own</Link>}
           <button className="btnBlue" onClick={onBack}>← Adjust Profile</button>
         </div>
       </div>

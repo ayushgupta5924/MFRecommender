@@ -44,10 +44,8 @@ async function request(path, { method, json, form } = {}) {
 // ── Plans ──
 export const getPortfolio = (payload) => request("/api/portfolio", { json: payload });
 
-// Fire-and-forget ping so the backend is awake by the time the form is submitted.
-export function warmUp() {
-  request("/api/health").catch(() => {});
-}
+// Also wakes the backend while the visitor reads the intro, so the plan comes back quickly.
+export const getHealth = () => request("/api/health");
 
 // ── Auth ──
 export const startSignup = (fullName, email) => request("/api/auth/signup/start", { json: { full_name: fullName, email } });

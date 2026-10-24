@@ -1,6 +1,5 @@
 import { useEffect } from "react";
 import { BrowserRouter, Navigate, Route, Routes, useLocation } from "react-router-dom";
-import { warmUp } from "./api";
 import { AuthProvider, RequireAuth } from "./auth";
 import AccountScreen from "./components/AccountScreen";
 import AuthScreen from "./components/AuthScreen";
@@ -18,9 +17,6 @@ function ScrollToTop() {
 
 // Every screen has its own URL, so a refresh or a shared link opens the same screen.
 export default function App() {
-  // Wake the backend while the user reads the intro.
-  useEffect(() => { warmUp(); }, []);
-
   return (
     <BrowserRouter>
       <AuthProvider>
