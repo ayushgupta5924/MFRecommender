@@ -185,7 +185,7 @@ def _manual(code: str, units: Optional[float], value: Optional[float], invested:
     if units is None:
         if value is None:
             raise HTTPException(422, "Enter the number of units or the current value.")
-        last = navs.latest(navs.histories([code]).get(code, []))
+        last = navs.latest_nav(code)
         if not last:
             raise HTTPException(503, "We couldn't get this fund's latest NAV. Enter units instead.")
         units = value / last[0]

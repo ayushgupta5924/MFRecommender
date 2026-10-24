@@ -30,6 +30,7 @@ def test_signup_needs_consent_and_records_it(monkeypatch):
 
 def test_holdings_need_consent_and_alerts_are_opt_in(monkeypatch):
     monkeypatch.setattr(navs, "histories", histories())
+    monkeypatch.setattr(navs, "latest_nav", lambda code: (100.0, "2026-10-23"))
     client = logged_in_client(monkeypatch, "consent-import@example.com")
     code = client.get("/api/funds/search", params={"q": "parag parikh flexi"}).json()[0]["code"]
 

@@ -153,6 +153,7 @@ def logged_in_client(monkeypatch, email):
 
 def test_review_api_manual_holdings_and_bad_uploads(monkeypatch):
     monkeypatch.setattr(navs, "histories", histories())
+    monkeypatch.setattr(navs, "latest_nav", lambda code: (100.0, "2026-10-23"))
     assert TestClient(app).get("/api/review").status_code == 401
     client = logged_in_client(monkeypatch, "review@example.com")
     assert client.get("/api/review").json()["empty"]
@@ -179,6 +180,7 @@ def test_guest_review_needs_no_account_and_stores_only_the_advice_record(monkeyp
     from app.db import SessionLocal
     from app.db.tables import AdviceRecord, Portfolio
     monkeypatch.setattr(navs, "histories", histories())
+    monkeypatch.setattr(navs, "latest_nav", lambda code: (100.0, "2026-10-23"))
     client = TestClient(app)
     code = ranked("flexi_cap", "top")["code"]
     with SessionLocal() as db:
@@ -242,3 +244,23 @@ def test_look_through_shows_real_stock_exposure_and_overlapping_funds():
     # No disclosed portfolios: nothing to show, nothing invented.
     r = Reviewer(fetch_histories=histories(), holdings=FakeHoldings({})).review([holding(a)], today=TODAY)
     assert r["top_stocks"] == [] and r["overlaps"] == []
+
+
+def test_latest_nav_uses_the_small_endpoint_and_retries(monkeypatch):
+    calls = []
+
+    class Resp:
+        def __init__(self, ok):
+            self.status_code = 200 if ok else 503
+
+        def json(self):
+            return {"data": [{"date": "23-10-2026", "nav": "123.45"}]}
+
+    def fake_get(url, timeout, headers):
+        calls.append(url)
+        return Resp(ok=len(calls) > 1)          # the first attempt fails, the retry works
+
+    monkeypatch.setattr(navs.requests, "get", fake_get)
+    navs._cache.pop("999999", None)
+    assert navs.latest_nav("999999") == (123.45, "2026-10-23")
+    assert all(u.endswith("/999999/latest") for u in calls) and len(calls) == 2

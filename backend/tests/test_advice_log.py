@@ -47,6 +47,7 @@ def test_client_plans_are_kept_once_per_change(monkeypatch):
 
 def test_reviews_are_kept_and_survive_account_deletion(monkeypatch):
     monkeypatch.setattr(navs, "histories", histories())
+    monkeypatch.setattr(navs, "latest_nav", lambda code: (100.0, "2026-10-23"))
     client = logged_in_client(monkeypatch, "keep@example.com")
     code = client.get("/api/funds/search", params={"q": "parag parikh flexi"}).json()[0]["code"]
     client.post("/api/review/holdings", json={"code": code, "value": 50_000, "consent": True})
