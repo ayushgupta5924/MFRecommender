@@ -117,6 +117,7 @@ export default function InputScreen() {
   const [answers, setAnswers]       = usePersistentState(K("answers"), {});
   const [insurance, setInsurance]   = usePersistentState(K("insurance"), {});
   const [budget, setBudget]         = usePersistentState(K("budget"), "");
+  const [lump, setLump]             = usePersistentState(K("lump"), "");
   const [targetAmount, setTarget]   = usePersistentState(K("target"), "");
   const [targetToday, setTargetToday] = usePersistentState(K("targetToday"), true);
   const [taxRegime, setTaxRegime]   = usePersistentState(K("taxRegime"), "old");
@@ -147,12 +148,18 @@ export default function InputScreen() {
   const rate = INDICATIVE_RETURN[risk?.label] || 0.09;
   const targetValue = num(targetAmount);
   const targetFuture = targetValue && horizon ? (targetToday ? targetValue * (1 + INFLATION) ** horizon : targetValue) : null;
-  const sipNeeded = targetFuture ? Math.ceil(requiredSip(targetFuture, horizon, rate) / 100) * 100 : null;
   const budgetValue = num(budget) || 0;
-  const fvOfBudget = budgetValue && horizon ? sipFutureValue(budgetValue, horizon, rate) : null;
-  const sip = budgetValue >= 500 ? budgetValue : sipNeeded || 0;
+  const lumpValue = num(lump) || 0;
+  const lumpFv = lumpValue && horizon ? lumpValue * (1 + rate) ** horizon : 0;
+  // SIP still needed after the one-time amount has grown; 0 when the one-time amount alone is enough.
+  const remaining = targetFuture ? targetFuture - lumpFv : null;
+  const sipNeeded = remaining == null ? null : remaining > 0 ? Math.ceil(requiredSip(remaining, horizon, rate) / 100) * 100 : 0;
+  const fvOfBudget = horizon ? (budgetValue ? sipFutureValue(budgetValue, horizon, rate) : 0) + lumpFv : null;
+  // With a one-time amount and no SIP entered, the plan is one-time only (as on the backend).
+  const sip = budgetValue >= 500 ? budgetValue : lumpValue ? 0 : sipNeeded || 0;
 
-  const amountValid = (budgetValue >= 500 || sipNeeded > 0) && !(budget && budgetValue < 500);
+  const amountValid = (budgetValue >= 500 || sipNeeded > 0 || lumpValue >= 1000)
+    && !(budget && budgetValue < 500) && !(lump && lumpValue < 1000);
   const canProceed = {
     1: ageValid && !!lifeStage,
     2: !!goal && horizonValid && childAgeValid && (!DATED_GOALS.includes(goal) || fixedDeadline != null),
@@ -181,6 +188,7 @@ export default function InputScreen() {
         capacity_score:        risk.capacity,
         willingness_score:     risk.willingness,
         monthly_budget:        budgetValue || null,
+        lump_sum:              lumpValue || null,
         target_amount:         targetValue || null,
         target_years:          targetValue ? horizon : null,
         target_in_today_value: !!targetValue && targetToday,
@@ -377,20 +385,30 @@ export default function InputScreen() {
                   )}
                 </div>
               )}
+              {sipNeeded === 0 && lumpValue > 0 && (
+                <div className="fieldHint">Your one-time amount alone should be enough for this target.</div>
+              )}
               {sipNeeded > 0 && (
                 <div className="sipResult">
-                  <div className="sipResult__label">Approximate monthly SIP needed</div>
+                  <div className="sipResult__label">
+                    Approximate monthly SIP needed{lumpValue > 0 ? " on top of your one-time amount" : ""}
+                  </div>
                   <div className="sipResult__amount">{fmt(sipNeeded)}<span className="sipResult__month">/month</span></div>
                 </div>
               )}
             </div>
 
             <div className="card">
-              <div className="card__title">💰 How much will you invest monthly?</div>
+              <div className="card__title">💰 How much will you invest?</div>
               <NumberField id="budget" label="Monthly SIP" value={budget} onChange={setBudget}
                 placeholder={sipNeeded ? `e.g. ${sipNeeded}` : "e.g. 10000"}
                 error={budget && budgetValue < 500 ? "The minimum SIP is ₹500." : null}
-                hint={!budget && sipNeeded ? "Leave blank to use the SIP needed for your target." : null} />
+                hint={budget ? null : lumpValue ? "Leave blank to invest only the one-time amount."
+                  : sipNeeded ? "Leave blank to use the SIP needed for your target." : null} />
+              <NumberField id="lump" label="One-time amount now (optional)" value={lump} onChange={setLump}
+                placeholder="e.g. 200000"
+                error={lump && lumpValue < 1000 ? "The minimum one-time amount is ₹1,000." : null}
+                hint={lump ? null : "Money you have ready today, such as a bonus or a maturing FD."} />
               {surplus != null && sip > 0 && (
                 <div className={`fieldHint ${sip > surplus ? "fieldHint--error" : ""}`}>
                   {sip > surplus
@@ -462,7 +480,8 @@ export default function InputScreen() {
               ["Profile used", `${risk.label} (${risk.score}/100)`],
             ]} />
             <ReviewSection title="Investment" step={5} onEdit={setStep} rows={[
-              ["Monthly SIP", fmt(sip)],
+              ["Monthly SIP", sip ? fmt(sip) : "None"],
+              lumpValue > 0 && ["One-time amount", fmt(lumpValue)],
               targetValue > 0 && ["Target", targetToday ? `${fmt(targetValue)} today ≈ ${fmt(targetFuture)} then` : fmt(targetValue)],
               goal === "tax_saving" && ["Tax regime", taxRegime === "old" ? "Old" : "New"],
             ]} />

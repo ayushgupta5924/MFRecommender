@@ -46,6 +46,7 @@ class UserProfile(BaseModel):
     capacity_score:     Optional[float] = Field(None, ge=0, le=100)
     willingness_score:  Optional[float] = Field(None, ge=0, le=100)
     monthly_budget:     Optional[float] = Field(None, ge=0, le=10_000_000)
+    lump_sum:           Optional[float] = Field(None, ge=0, le=10_000_000_000)   # one-time amount invested now
 
     # Goal-based SIP calculator inputs
     target_amount:      Optional[float] = Field(None, ge=0, le=10_000_000_000)   # e.g. 5000000 (50 lakhs)
@@ -117,6 +118,7 @@ class FundRecommendation(BaseModel):
     category_median_5y:   Optional[float] = None
     years_history:        Optional[float] = None
     lock_in_years:        int = 0
+    lump_sum_amount:      float = 0             # this fund's share of the one-time amount
     alternatives:         List[FundAlternative] = []
 
 
@@ -146,6 +148,7 @@ class PortfolioRecommendation(BaseModel):
     funds:                 List[FundRecommendation]
 
     monthly_investment:    float = 0
+    lump_sum:              float = 0
     horizon_years:         int = 0
     total_invested:        float = 0
     asset_mix:             Dict[str, float] = {}

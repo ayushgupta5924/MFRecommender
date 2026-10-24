@@ -22,7 +22,7 @@ export default function FundCard({ fund }) {
   const color = getCategoryColor(risk);
   const nav   = fund.nav != null ? "₹" + parseFloat(fund.nav).toFixed(2) : "—";
   const alloc = fund.allocation_percentage != null ? Math.round(fund.allocation_percentage) + "%" : "—";
-  const sip   = "₹" + Math.round(fund.monthly_sip_amount || fund.allocation_amount || 0).toLocaleString("en-IN");
+  const rupees = (n) => "₹" + Math.round(n || 0).toLocaleString("en-IN");
   const investUrl = fund.investment_url || `https://groww.in/search?q=${encodeURIComponent(fund.scheme_name || "mutual fund")}`;
   const alternatives = fund.alternatives || [];
 
@@ -44,7 +44,11 @@ export default function FundCard({ fund }) {
       <div className="fundCard__body">
         <div className="investBox">
           <span>💰</span>
-          <span className="investBox__amount">Monthly SIP: {sip}</span>
+          <span className="investBox__amount">
+            {fund.monthly_sip_amount > 0 && `Monthly SIP: ${rupees(fund.monthly_sip_amount)}`}
+            {fund.monthly_sip_amount > 0 && fund.lump_sum_amount > 0 && " · "}
+            {fund.lump_sum_amount > 0 && `One-time: ${rupees(fund.lump_sum_amount)}`}
+          </span>
           <span className="investBox__share">{alloc} of plan</span>
         </div>
 

@@ -244,3 +244,39 @@ def test_mix_reasons_name_the_limiting_rule():
     emergency = engine.get_portfolio(UserProfile(life_stage="peak_earning", goal="emergency_corpus",
                                                  risk_tolerance="high", monthly_budget=5_000))
     assert "Emergency money" in emergency.mix_reasons[0]
+
+
+# ── One-time (lump sum) amounts ──────────────────────────────────────────────
+
+@pytest.mark.parametrize("life_stage,goal", list(itertools.product(LifeStage, InvestmentGoal)))
+def test_lump_sum_invariants(life_stage, goal):
+    for lump, budget, horizon in itertools.product([1_000, 25_000, 300_000, 5_000_000], [0, 2_000, 30_000], [1, 4, 12]):
+        p = engine.get_portfolio(UserProfile(life_stage=life_stage, goal=goal, risk_tolerance="high",
+                                             monthly_budget=budget or None, lump_sum=lump, horizon_years=horizon,
+                                             tax_regime="old"))
+        ctx = (life_stage.value, goal.value, lump, budget, horizon)
+        assert p.funds, ctx
+        assert sum(f.lump_sum_amount for f in p.funds) == pytest.approx(lump), ctx
+        assert sum(f.monthly_sip_amount for f in p.funds) == pytest.approx(budget), ctx
+        if budget:
+            assert all(f.monthly_sip_amount >= alloc.MIN_SIP for f in p.funds), ctx
+        assert p.total_invested == pytest.approx(budget * 12 * horizon + lump), ctx
+        assert p.projections["expected"].corpus >= lump, ctx
+
+
+def test_lump_sum_reduces_the_sip_needed_for_a_target():
+    common = dict(life_stage="new_parent", goal="child_education", risk_tolerance="moderate",
+                  target_amount=3_000_000, horizon_years=12)
+    without = engine.get_portfolio(UserProfile(**common))
+    with_lump = engine.get_portfolio(UserProfile(**common, lump_sum=500_000))
+    assert with_lump.monthly_sip_required < without.monthly_sip_required
+    enough = engine.get_portfolio(UserProfile(**common, lump_sum=3_000_000))
+    assert enough.monthly_sip_required is None and enough.goal_status == "on_track"
+
+
+def test_large_equity_lump_sum_suggests_an_stp_and_small_one_is_rejected():
+    p = engine.get_portfolio(UserProfile(**BASE, lump_sum=1_000_000))
+    assert any("STP" in w for w in p.warnings)
+    with pytest.raises(ValueError):
+        engine.get_portfolio(UserProfile(life_stage="peak_earning", goal="wealth_creation",
+                                         risk_tolerance="high", lump_sum=500, horizon_years=10))
