@@ -152,7 +152,7 @@ class FundRecommendation(BaseModel):
     lump_sum_amount:      float = 0             # this fund's share of the one-time amount
     alternatives:         List[FundAlternative] = []
     rating_status:        Optional[str] = None      # quartile in its whole category, as the portfolio review rates it
-    rating_label:         Optional[str] = None      # "In form", "On track", ...
+    rating_label:         Optional[str] = None      # "Top 25%", "Above average", ...
     already_held:         bool = False              # the investor holds this fund (any plan or option) already
 
 

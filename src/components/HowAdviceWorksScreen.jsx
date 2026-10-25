@@ -73,8 +73,8 @@ export default function HowAdviceWorksScreen() {
               year, since the track record belongs to the people who built it.
             </li>
             <li>
-              <b>Portfolio review:</b> each fund you hold is rated by where it ranks in its category (top quarter "in form"
-              to bottom quarter "out of form"). The portfolio is checked for costs, Regular plans, funds that own
+              <b>Portfolio review:</b> each fund you hold is rated by which quarter of its category it ranks in ("Top 25%",
+              "Above average", "Below average" or "Bottom 25%"). The portfolio is checked for costs, Regular plans, funds that own
               largely the same stocks (from their monthly portfolio disclosures), funds too large for their category,
               fund manager changes and drift from your plan.
             </li>

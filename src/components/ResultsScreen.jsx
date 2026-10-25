@@ -52,8 +52,8 @@ function HeldFundsAdvice({ existing }) {
         <div className="projNote">{existing.notes.join(" ")}</div>
       )}
       <div className="projNote">
-        Ratings compare each fund with every other fund in its category: top quarter is in form, bottom quarter out of
-        form. <Link to="/review">Review these funds in detail</Link> for returns, tax and overlap.
+        Ratings compare each fund with every other fund in its category, by quarter: Top 25%, Above average, Below
+        average or Bottom 25%. <Link to="/review">Review these funds in detail</Link> for returns, tax and overlap.
       </div>
     </div>
   );

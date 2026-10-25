@@ -2,10 +2,10 @@
 
 Each fund is rated through its Direct-Growth twin against the other funds in
 its category, using the same nightly rankings that build new plans:
-    In form       top quarter of its category
-    On track      second quarter
-    Off track     third quarter
-    Out of form   bottom quarter
+    Top 25%         top quarter of its category
+    Above average   second quarter
+    Below average   third quarter
+    Bottom 25%      bottom quarter
 Regular plans and IDCW options share their twin's rating, since they hold the
 same portfolio; they are flagged separately for cost and tax.
 
@@ -28,11 +28,11 @@ from app.services.rankings_store import scheme_map as default_scheme_map
 from app.services.rankings_store import store as default_rankings
 
 STATUSES = {
-    "in_form":     ("In form", "Keep investing."),
-    "on_track":    ("On track", "Keep investing."),
-    "off_track":   ("Off track", "Hold, and watch it. It's in the bottom half of its category; "
+    "in_form":     ("Top 25%", "Keep investing."),
+    "on_track":    ("Above average", "Keep investing."),
+    "off_track":   ("Below average", "Hold, and watch it. It's in the bottom half of its category; "
                                  "if it slips to the bottom quarter we'll suggest a switch."),
-    "out_of_form": ("Out of form", "Consider moving new SIPs to a better-ranked fund in the same category. "
+    "out_of_form": ("Bottom 25%", "Consider moving new SIPs to a better-ranked fund in the same category. "
                                    "Before selling existing units, check exit load and capital gains tax."),
     "not_rated":   ("Not rated", ""),
 }
@@ -420,7 +420,7 @@ class Reviewer:
         if bad:
             value = sum(r["value"] for r in bad)
             out.append({"level": "high", "key": "out_of_form",
-                        "title": f"{_plural(len(bad), 'fund')} out of form ({share(value)} of your money)",
+                        "title": f"{_plural(len(bad), 'fund')} in the bottom 25% of their category ({share(value)} of your money)",
                         "text": "These are in the bottom quarter of their category on long-run returns, consistency "
                                 "and falls: " + ", ".join(r["name"] for r in bad) + ". Consider pointing new SIPs to "
                                 "a better-ranked fund in the same category; the fund cards list options."})
@@ -541,6 +541,6 @@ class Reviewer:
         out.sort(key=lambda i: ["high", "medium", "low"].index(i["level"]))
         if not any(i["level"] in ("high", "medium") for i in out) and valued:
             out.insert(0, {"level": "good", "key": "healthy", "title": "Your portfolio is in good shape",
-                           "text": "No fund is out of form and we found nothing major to fix. We re-check it against "
+                           "text": "No fund is in the bottom 25% of its category and we found nothing major to fix. We re-check it against "
                                    "fresh data every night."})
         return out

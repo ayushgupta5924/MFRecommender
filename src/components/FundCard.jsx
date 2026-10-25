@@ -74,7 +74,7 @@ export default function FundCard({ fund }) {
           <span className="fundCard__riskPill" style={{ color, borderColor: color + "44" }}>{risk || "—"} Risk</span>
           {fund.rating_label && (
             <span className={`statusChip statusChip--${fund.rating_status}`}
-              title="Where it ranks in its whole category, as the portfolio review rates it: top quarter is in form, bottom quarter out of form.">
+              title="Which quarter of its whole category it ranks in, as the portfolio review rates it.">
               {fund.rating_label}
             </span>
           )}

@@ -299,7 +299,7 @@ def test_plan_note_explains_a_cautious_plan_for_a_bold_investor():
 
 # ── Funds already held ───────────────────────────────────────────────────────
 
-PPFAS_FLEXI = "122639"          # Parag Parikh Flexi Cap, Direct Growth: in form, not the default flexi cap pick
+PPFAS_FLEXI = "122639"          # Parag Parikh Flexi Cap, Direct Growth: top 25%, not the default flexi cap pick
 SHRIRAM_FLEXI_REGULAR = "144902"  # bottom of the flexi cap ranking, Regular plan
 GOLD_ETF = "153357"
 
@@ -312,7 +312,7 @@ def _balanced(**kw):
 
 def test_plan_funds_carry_the_review_rating_label():
     plan = engine.get_portfolio(_balanced())
-    assert all(f.rating_label in ("In form", "On track", "Off track", "Out of form") for f in plan.funds)
+    assert all(f.rating_label in ("Top 25%", "Above average", "Below average", "Bottom 25%") for f in plan.funds)
     assert all(not f.already_held for f in plan.funds)
     assert plan.existing is None
 
