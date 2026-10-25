@@ -5,9 +5,17 @@ Goal-based mutual fund SIP plans and portfolio reviews for Indian investors.
 - **Plan:** a 6-step questionnaire (about you, goal, finances, risk attitude, amount, review) gives an asset
   allocation, specific Direct-Growth funds ranked from daily data on every fund in India, the evidence behind
   each pick, and a projection range. No account needed; logged-in users can save plans.
-- **Portfolio review** (login required): upload a CAMS / KFintech CAS PDF or add funds by hand. Every fund is
+  - **Funds already held:** step 5 picks them up from the portfolio review (this browser tab for a guest, the
+    account when logged in) or asks for them by hand. The plan rates each one and says whether to keep it, watch
+    it, move new SIPs to the plan's fund or (for short goals) move it out of equity; keeps a held fund that ranks
+    in the top half of its category instead of adding another; and, if the investor agrees, counts their value
+    towards the goal, which lowers the SIP needed.
+  - Every recommended fund shows the same In form / On track / Off track / Out of form label as the review.
+- **Portfolio review** (no login needed): upload a CAMS / KFintech CAS PDF or add funds by hand. Every fund is
   rated In form / On track / Off track / Out of form against its category, with returns (XIRR), tax lots,
-  Regular-plan cost, duplicate funds, asset mix against the saved plan and suggested alternatives.
+  Regular-plan cost, duplicate funds, stock overlap, asset mix against the saved plan and suggested alternatives.
+  A guest's holdings stay in that browser tab (only the SEBI advice record is stored); logged-in users keep
+  theirs in the account and can opt in to monthly rating-change alerts.
 - **Accounts:** sign-up and login by emailed one-time code only (no passwords).
 
 - **Frontend:** React + Vite, deployed on Vercel
@@ -30,8 +38,12 @@ GitHub Action (nightly, 00:30 IST)
 API request  POST /api/portfolio
   ├─ allocation.py         equity / hybrid / debt mix from risk score, horizon, life stage, goal
   ├─ consolidate           fund count by budget, every SIP ≥ ₹500, merges never add risk
-  ├─ fund selection        best-scored fund per bucket, prefers 5+ yr records, spreads across AMCs
-  └─ projections           category rolling returns, pessimistic / expected / optimistic
+  ├─ existing holdings     valued at today's NAV and rated like the review (rate_fund in services/review.py)
+  ├─ fund selection        best-scored fund per bucket, prefers 5+ yr records, spreads across AMCs;
+  │                        a held fund in the top half of its category is kept instead
+  ├─ projections           category rolling returns, pessimistic / expected / optimistic,
+  │                        plus held funds when they count towards the goal
+  └─ existing advice       keep / watch / switch new SIPs / move, per held fund
 
 API request  GET /api/review   (services/review.py)
   ├─ scheme map            Regular / IDCW holdings rated through their Direct-Growth twin
@@ -94,7 +106,8 @@ python -m scripts.build_rankings --cache-dir ../.cache/mf
     (the API pulls the nightly file every 6 hours without a redeploy)
   - `ALLOWED_ORIGINS=https://<your-vercel-domain>` (comma-separated; defaults to `*`)
   - `DATABASE_URL` — the Neon connection string for the **production** branch (pooled or direct both work).
-    **Required for accounts**: until it's set, login, review and saving stay hidden, because a SQLite file on
+    **Required for accounts**: until it's set, login, saved plans and saved portfolios stay hidden (the guest
+    review and plan still work), because a SQLite file on
     Render would be wiped on every deploy.
   - `AUTH_SECRET` — a long random string (e.g. `python -c "import secrets; print(secrets.token_hex(32))"`).
     Changing it logs everyone out.
@@ -137,6 +150,8 @@ The nightly data commit contains `[skip render]`, so it doesn't trigger a Render
 | GET / DELETE | `/api/review` | Review of the saved portfolio, or delete it |
 | POST | `/api/review/upload` | CAS PDF + password → holdings → review |
 | POST / DELETE | `/api/review/holdings[/{id}]` | Add a fund by hand, remove one |
+| GET | `/api/review/holdings` | The saved portfolio's funds and units only (no review), for a new plan |
+| POST | `/api/review/guest`, `/api/review/guest/upload` | Review without an account; the browser sends the holdings |
 | GET | `/api/funds/search?q=` | Any open-ended scheme by name |
 | GET / POST / DELETE | `/api/plans[/{id}]` | Saved plans |
 
@@ -150,9 +165,14 @@ Example request:
   "risk_score": 62,
   "monthly_budget": 25000,
   "horizon_years": 12,
-  "target_amount": 10000000
+  "target_amount": 10000000,
+  "existing_holdings": [{ "code": "122639", "value": 200000 }, { "code": "144902", "units": 850.5 }],
+  "count_existing": true
 }
 ```
+
+`existing_holdings` is optional: AMFI scheme codes with either today's value or units. The response then has an
+`existing` block (value, asset mix, and per fund its rating, action and advice).
 
 ## Before launch
 
@@ -183,9 +203,11 @@ name and email and are kept even after the account is deleted, then purged autom
 
 ## Limitations
 
-- Rankings use past NAV performance only. Expense ratio, AUM, portfolio holdings and fund manager changes are not
-  in the free data sources and are not considered.
-- Projections are estimates from category-level historical returns, not guarantees.
+- Rankings combine NAV history (returns, consistency, falls, record against the index) with expense ratio, fund
+  size, portfolio holdings and manager changes from Kuvera's public data (weekly) and AMFI's average AUM. Manager
+  changes are only known from October 2026, when tracking started.
+- Projections are estimates from category-level historical returns, not guarantees. Held funds that count towards
+  a goal are projected at the plan's rate, which is only an approximation when their mix differs from the plan.
 - mfapi.in is a free community API; if it is down, the nightly job fails safely and keeps the previous rankings.
 - Review ratings cover the categories the planner ranks. Sector/theme, international, gold and some debt categories
-  are shown but not rated. Overlap is judged by category, not stock-level holdings (not in free data).
+  are shown but not rated. Stock overlap uses each fund's latest monthly portfolio disclosure.
