@@ -12,3 +12,4 @@
 .alertToggle { display: flex; gap: 12px; align-items: flex-start; cursor: pointer; font-size: 14px; color: var(--text); }
 .alertToggle input { width: 18px; height: 18px; margin-top: 2px; flex-shrink: 0; }
 .alertToggle span { display: flex; flex-direction: column; gap: 2px; }
+.accountLink__label { display: inline-flex; align-items: center; gap: 9px; }

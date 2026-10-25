@@ -1,11 +1,12 @@
 import { useEffect, useState } from "react";
+import { ChartColumn, CircleCheck, LockKeyhole, Save, Shield, SlidersHorizontal, TriangleAlert } from "lucide-react";
 import { Link, Navigate, useNavigate } from "react-router-dom";
 import { getPortfolio, savePlan } from "../api";
 import { useAuth } from "../auth";
 import "../styles/FundCard.css";
 import "../styles/ResultsScreen.css";
 import "../styles/shared.css";
-import { fmt, fmtDate } from "../utils/format";
+import { fmt, fmtDate, planTitle } from "../utils/format";
 import { LAST_PLAN_KEY, load, save } from "../utils/storage";
 import AppBar from "./AppBar";
 import Disclaimer from "./Disclaimer";
@@ -20,7 +21,7 @@ const SCENARIOS = [
 ];
 
 const HELD_ACTION = {
-  keep: "✅ Keep", watch: "👀 Watch", switch: "🔁 Move new SIPs", move: "⏳ Doesn't suit this goal", review: "ℹ️ Check",
+  keep: "Keep", watch: "Watch", switch: "Move new SIPs", move: "Doesn't suit this goal", review: "Check",
 };
 
 // What to do with each fund the investor already holds, given this plan.
@@ -67,12 +68,12 @@ function SavePlan({ last, setLast }) {
   if (user === null) {
     return (
       <Link className="btnOutline" to={`/login?next=${encodeURIComponent("/plan/results")}`}>
-        🔐 Log in to save this plan
+        <LockKeyhole size={17} /> Log in to save this plan
       </Link>
     );
   }
   if (last.savedId) {
-    return <div className="successText">✅ Saved to your account. <Link to="/account">See your plans</Link></div>;
+    return <div className="successText"><CircleCheck size={14} className="ico" /> Saved to your account. <Link to="/account">See your plans</Link></div>;
   }
   const onSave = async () => {
     setState({ saving: true, error: "" });
@@ -90,7 +91,7 @@ function SavePlan({ last, setLast }) {
   return (
     <>
       <button className="btnOutline" onClick={onSave} disabled={state.saving || !user}>
-        {state.saving ? "Saving…" : "💾 Save to my account"}
+        {state.saving ? "Saving…" : <><Save size={17} /> Save to my account</>}
       </button>
       {state.error && <div className="errorText">{state.error}</div>}
     </>
@@ -144,7 +145,7 @@ function WhatIf({ last, setLast }) {
   const maxSip = Math.max(100_000, Math.ceil(base.sip * 2 / 1000) * 1000);
 
   if (!open) {
-    return <button className="btnOutline whatIfToggle" onClick={() => setOpen(true)}>🎚️ Try different numbers</button>;
+    return <button className="btnOutline whatIfToggle" onClick={() => setOpen(true)}><SlidersHorizontal size={17} /> Try different numbers</button>;
   }
   return (
     <div className="card whatIf">
@@ -194,9 +195,9 @@ export default function ResultsScreen() {
       <AppBar title="Your Plan" onBack={onBack} />
 
       <div className="portfolioHero">
-        <div className="portfolioHero__name">{results.portfolio_name}</div>
+        <div className="portfolioHero__name">{planTitle(results.portfolio_name)}</div>
         <div className="portfolioHero__desc">{results.portfolio_description}</div>
-        {results.plan_note && <div className="planNote">🛡️ {results.plan_note}</div>}
+        {results.plan_note && <div className="planNote"><Shield size={14} className="ico" /> {results.plan_note}</div>}
 
         <div className="sipStrip">
           {results.monthly_investment > 0 && (
@@ -279,8 +280,8 @@ export default function ResultsScreen() {
           {results.target_amount && (
             <div className={`goalStatus goalStatus--${results.goal_status}`}>
               {results.goal_status === "on_track"
-                ? `✅ On track for your ${target} target.`
-                : `⚠️ Expected to fall short of ${target}. Increase your SIP by about ${fmt(results.shortfall_monthly)}/month or extend the timeline.`}
+                ? `On track for your ${target} target.`
+                : `Expected to fall short of ${target}. Increase your SIP by about ${fmt(results.shortfall_monthly)}/month or extend the timeline.`}
             </div>
           )}
         </div>
@@ -301,7 +302,7 @@ export default function ResultsScreen() {
 
         {results.warnings?.length > 0 && (
           <div className="warningBox">
-            {results.warnings.map((w) => <div key={w} className="warningBox__item">⚠️ {w}</div>)}
+            {results.warnings.map((w) => <div key={w} className="warningBox__item"><TriangleAlert size={14} className="ico" /> {w}</div>)}
           </div>
         )}
 
@@ -322,7 +323,7 @@ export default function ResultsScreen() {
 
         <div className="resultsActions">
           <SavePlan last={last} setLast={setLast} />
-          <Link className="btnOutline" to="/review">📊 Review the funds you already own</Link>
+          <Link className="btnOutline" to="/review"><ChartColumn size={17} /> Review the funds you already own</Link>
           <button className="btnBlue" onClick={onBack}>← Adjust Profile</button>
         </div>
       </div>

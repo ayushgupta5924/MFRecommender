@@ -1,10 +1,11 @@
+import { TriangleAlert } from "lucide-react";
 import { COMPLIANCE } from "../constants/compliance";
 import "../styles/Disclaimer.css";
 
 export default function Disclaimer() {
   return (
     <div className="disclaimer">
-      <div className="disclaimer__badge">⚠️</div>
+      <div className="disclaimer__badge"><TriangleAlert size={18} /></div>
       <div className="disclaimer__content">
         <div className="disclaimer__title">Important Disclaimer</div>
         <p className="disclaimer__text">

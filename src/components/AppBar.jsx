@@ -49,6 +49,7 @@ export default function AppBar({ title, onBack, extra }) {
         <nav className="appBar__nav">
           <NavLink to="/plan" end className="appBar__link appBar__link--hideSm">Plan</NavLink>
           <NavLink to="/review" className="appBar__link">Review</NavLink>
+          <NavLink to="/funds" className="appBar__link">Funds</NavLink>
           <NavLink to="/how-advice-works" className="appBar__link appBar__link--hideSm">How it works</NavLink>
           <ThemePicker />
           {user && (

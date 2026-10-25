@@ -18,6 +18,10 @@ Goal-based mutual fund SIP plans and portfolio reviews for Indian investors.
   A guest's holdings stay in that browser tab (only the SEBI advice record is stored); logged-in users keep
   theirs in the account and can opt in to monthly rating-change alerts.
 - **Accounts:** sign-up and login by emailed one-time code only (no passwords).
+- **Fund research** (`/funds`, `/fund/<AMFI code>`): every ranked category as a table, and a page for any open-ended
+  scheme with its rating, NAV chart, returns against the category median, risk, costs, size, managers, top holdings,
+  best-ranked peers and its rank over time (one point a week, kept two years, in `backend/app/data/rank_history.json`,
+  written by the nightly job; recording started October 2026).
 
 - **Frontend:** React + Vite, deployed on Vercel
 - **Backend:** FastAPI, deployed on Render
@@ -124,6 +128,13 @@ python -m scripts.build_rankings --cache-dir ../.cache/mf
 
 The nightly data commit contains `[skip render]`, so it doesn't trigger a Render redeploy.
 
+### Analytics, link previews and SEO
+- Vercel Web Analytics (cookieless page-visit counts) loads only on the deployed site. Switch it on once in the Vercel
+  project: **Analytics → Enable**. It's described in the Privacy Notice.
+- Link previews use `public/og.png` and the tags in `index.html`; `public/robots.txt` and `public/sitemap.xml` point
+  search engines at the public pages. **When the site moves to its own domain**, replace
+  `https://mf-recommender.vercel.app` in those three files.
+
 ### GitHub Actions
 - `refresh-rankings.yml`: nightly rankings rebuild. Needs **Settings → Actions → General → Workflow permissions →
   Read and write**. Can also be run manually from the Actions tab.
@@ -160,6 +171,8 @@ The nightly data commit contains `[skip render]`, so it doesn't trigger a Render
 | POST | `/api/pan/webhook` | smallcase posts the holdings here (HMAC checksum checked) |
 | POST | `/api/pan/status` | Poll a PAN fetch; when the holdings are in, returns the review and clears them |
 | GET | `/api/funds/search?q=` | Any open-ended scheme by name |
+| GET | `/api/funds/categories`, `/api/funds/category/{key}` | Ranked categories, and one category's full ranking |
+| GET | `/api/funds/{code}` | One fund: rating, NAV chart, returns, risk, holdings, peers, rank history |
 | GET / POST / DELETE | `/api/plans[/{id}]` | Saved plans |
 
 Example request:

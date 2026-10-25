@@ -22,6 +22,7 @@ import requests
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from app.services import fund_facts as ff  # noqa: E402
+from app.services import rank_history  # noqa: E402
 from app.services.amfi import NAVALL_URL, build_scheme_map, index_fund_rows, parse_navall, reference_nav_date  # noqa: E402
 from app.services.catalog import BUCKETS, benchmark_funds  # noqa: E402
 from app.services.ranking import build_rankings, mfapi_points  # noqa: E402
@@ -29,6 +30,7 @@ from app.services.ranking import build_rankings, mfapi_points  # noqa: E402
 MFAPI_URL = "https://api.mfapi.in/mf/{code}"
 OUTPUT = Path(__file__).resolve().parents[1] / "app" / "data" / "rankings.json"
 SCHEME_MAP_OUTPUT = OUTPUT.with_name("scheme_map.json")
+HISTORY_OUTPUT = OUTPUT.with_name("rank_history.json")
 FACTS_OUTPUT = OUTPUT.with_name("fund_facts.json")
 HOLDINGS_OUTPUT = OUTPUT.with_name("holdings.json")
 MIN_FACTS_COVERAGE = 0.6        # share of ranked schemes a facts refresh must cover to replace the last one
@@ -201,6 +203,8 @@ def main() -> int:
         return 1
 
     write_json(args.output, rankings)
+    history_path = args.output.with_name(HISTORY_OUTPUT.name)
+    write_json(history_path, rank_history.record(read_json(history_path), rankings))
     total = sum(len(b["funds"]) for b in rankings["buckets"].values())
     print(f"Wrote {total} ranked funds across {len(BUCKETS)} buckets to {args.output} "
           f"(risk-free {rankings['risk_free_rate']:.2%})")

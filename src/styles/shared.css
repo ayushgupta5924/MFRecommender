@@ -209,3 +209,14 @@ select.fieldInput { appearance: auto; }
   display: inline-flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 700; letter-spacing: 0.8px;
   text-transform: uppercase; color: var(--accent-text);
 }
+
+/* ── Icons (lucide-react) ── */
+.ico { display: inline-block; vertical-align: -2px; flex-shrink: 0; }
+.ico--accent { color: var(--accent-text); }
+.ico--warn { color: var(--warn); }
+.card__title { display: flex; align-items: center; gap: 9px; }
+.card__title > svg { color: var(--accent-text); flex-shrink: 0; }
+.fieldIcon { display: flex; align-items: center; }
+.warningBox__item .ico { color: var(--warn); margin-right: 2px; }
+.successText .ico { color: var(--pos); }
+.fieldHint .ico, .goalStatus .ico { color: var(--warn); }

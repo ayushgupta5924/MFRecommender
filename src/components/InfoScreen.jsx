@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
+import { Brain, ChartColumn, Lightbulb, Search, Sparkles, Target } from "lucide-react";
 import { Link } from "react-router-dom";
 import { getHealth } from "../api";
+import { usePageMeta } from "../utils/meta";
 import { useAuth } from "../auth";
 import { FACTORS, STRATEGIES } from "../constants/strategies";
 import "../styles/InfoScreen.css";
@@ -61,7 +63,7 @@ function HeroPreview() {
           </div>
         ))}
         <div className="preview__tip">
-          <span>💡</span> Your small cap fund is in the bottom quarter of its category. See better-ranked alternatives.
+          <Lightbulb size={15} className="ico ico--warn" /> Your small cap fund is in the bottom quarter of its category. See better-ranked alternatives.
         </div>
       </div>
     </div>
@@ -72,6 +74,7 @@ export default function InfoScreen() {
   const { panEnabled } = useAuth();
   const [expanded, setExpanded] = useState(false);
   const [ranked, setRanked] = useState(null);
+  usePageMeta(null);
 
   useEffect(() => {
     getHealth().then((h) => setRanked(h.funds_ranked)).catch(() => {});
@@ -118,10 +121,10 @@ export default function InfoScreen() {
       <div className="landing">
         <section className="landingSection">
           <div className="eyebrow">What you can do</div>
-          <h2 className="landingSection__title">Two tools, one honest view of your money</h2>
+          <h2 className="landingSection__title">Three tools, one honest view of your money</h2>
           <div className="featureGrid">
             <Link to="/plan" className="feature">
-              <div className="feature__icon">🎯</div>
+              <div className="feature__icon"><Target size={24} /></div>
               <div className="feature__title">Plan a goal</div>
               <p className="feature__text">Retirement, a home, your child's education or just wealth. We work out the SIP,
                 the asset mix and the funds.</p>
@@ -133,7 +136,7 @@ export default function InfoScreen() {
               <span className="feature__cta">Start planning →</span>
             </Link>
             <Link to="/review" className="feature">
-              <div className="feature__icon">📊</div>
+              <div className="feature__icon"><ChartColumn size={24} /></div>
               <div className="feature__title">Review your portfolio</div>
               <p className="feature__text">Every fund rated against its category, with what you've really earned and where
                 you're overpaying.</p>
@@ -143,6 +146,18 @@ export default function InfoScreen() {
                 <li>Keep, watch or switch, fund by fund</li>
               </ul>
               <span className="feature__cta">Review my funds →</span>
+            </Link>
+            <Link to="/funds" className="feature">
+              <div className="feature__icon"><Search size={24} /></div>
+              <div className="feature__title">Research any fund</div>
+              <p className="feature__text">Look up any mutual fund and see how it ranks in its category, and how that rank
+                has moved.</p>
+              <ul className="feature__list">
+                <li>Returns against the category median</li>
+                <li>Worst falls, costs, size and managers</li>
+                <li>Top holdings and the best-ranked peers</li>
+              </ul>
+              <span className="feature__cta">Browse rankings →</span>
             </Link>
           </div>
         </section>
@@ -167,7 +182,7 @@ export default function InfoScreen() {
           <div className="factorGrid">
             {FACTORS.map((f) => (
               <div key={f.title} className="factorCard">
-                <div className="factorIcon">{f.emoji}</div>
+                <div className="factorIcon"><f.icon size={20} /></div>
                 <div>
                   <div className="factorTitle">{f.title}</div>
                   <div className="factorDesc">{f.desc}</div>
@@ -178,7 +193,7 @@ export default function InfoScreen() {
 
           <div className="expansionBox">
             <button type="button" className="expansionHeader" aria-expanded={expanded} onClick={() => setExpanded(!expanded)}>
-              <span className="expansionHeader__icon">🧠</span>
+              <span className="expansionHeader__icon"><Brain size={22} /></span>
               <div style={{ flex: 1 }}>
                 <div className="expansionHeader__title">Our selection method</div>
                 <div className="expansionHeader__subtitle">How we build your plan and choose funds</div>
@@ -197,7 +212,7 @@ export default function InfoScreen() {
                   </div>
                 ))}
                 <div className="amberNotice">
-                  <span>✨</span>
+                  <Sparkles size={16} className="ico ico--warn" />
                   <span className="amberNotice__text">
                     Rankings are rebuilt every night from AMFI's official NAV data. No AI is used:{" "}
                     <Link to="/how-advice-works">how our advice works</Link>.

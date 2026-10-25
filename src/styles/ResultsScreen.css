@@ -80,3 +80,4 @@
 .heldAdvice__value { font-size: 14px; font-weight: 700; color: var(--text); }
 .heldAdvice__text { font-size: 13px; color: var(--text-2); line-height: 1.5; margin-top: 6px; }
 .heldAdvice__notes { margin-top: 12px; }
+.planNote { display: inline-flex; align-items: center; gap: 6px; }

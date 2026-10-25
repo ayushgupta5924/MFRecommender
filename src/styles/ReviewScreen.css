@@ -118,3 +118,11 @@
 .overlapRow { display: flex; justify-content: space-between; gap: 12px; font-size: 13px; padding: 6px 0; border-bottom: 1px solid var(--border); color: var(--text-2); }
 .overlapRow b { color: var(--text); }
 .overlapRow b.neg { color: var(--neg); }
+.importTab { display: inline-flex; align-items: center; justify-content: center; gap: 7px; }
+.insight__title { display: flex; align-items: center; gap: 7px; }
+.insight__icon { flex-shrink: 0; }
+.insight__icon--high { color: var(--neg); }
+.insight__icon--medium { color: var(--warn); }
+.insight__icon--low { color: var(--accent-text); }
+.insight__icon--good { color: var(--pos); }
+.holding__note .ico, .holding__action .ico { color: var(--warn); }

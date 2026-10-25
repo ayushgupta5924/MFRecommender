@@ -1,4 +1,6 @@
 import { useState } from "react";
+import { Link } from "react-router-dom";
+import { Lightbulb, Lock, TriangleAlert, Wallet } from "lucide-react";
 import "../styles/FundCard.css";
 import "../styles/shared.css";
 import { getCategoryColor } from "../utils/colors";
@@ -51,7 +53,7 @@ function FundFacts({ fund: f }) {
           </div>
         ))}
       </div>
-      {f.size_note && <div className="factWarn">⚠️ {f.size_note}</div>}
+      {f.size_note && <div className="factWarn"><TriangleAlert size={14} className="ico" /> {f.size_note}</div>}
     </>
   );
 }
@@ -84,9 +86,9 @@ export default function FundCard({ fund }) {
             </span>
           )}
           {fund.already_held && <span className="fundCard__heldPill">You hold this</span>}
-          {fund.lock_in_years > 0 && <span className="fundCard__lockPill">🔒 {fund.lock_in_years}-yr lock-in</span>}
+          {fund.lock_in_years > 0 && <span className="fundCard__lockPill"><Lock size={12} className="ico" /> {fund.lock_in_years}-yr lock-in</span>}
         </div>
-        <div className="fundCard__name">{fund.scheme_name || "Unknown Fund"}</div>
+        <Link className="fundCard__name" to={`/fund/${fund.scheme_code}`}>{fund.scheme_name || "Unknown Fund"}</Link>
         <div className="fundCard__amc">
           {fund.amc} · Direct Plan · Growth
           {fund.info_url && (
@@ -97,7 +99,7 @@ export default function FundCard({ fund }) {
 
       <div className="fundCard__body">
         <div className="investBox">
-          <span>💰</span>
+          <Wallet size={17} />
           <span className="investBox__amount">
             {fund.monthly_sip_amount > 0 && `Monthly SIP: ${rupees(fund.monthly_sip_amount)}`}
             {fund.monthly_sip_amount > 0 && fund.lump_sum_amount > 0 && " · "}
@@ -135,7 +137,7 @@ export default function FundCard({ fund }) {
           <>
             <hr className="divider" />
             <div className="whyRow">
-              <span>💡</span>
+              <Lightbulb size={16} className="ico ico--accent" />
               <span className="whyTitle">Why this fund?</span>
             </div>
             <p className="whyText">{fund.reason}</p>
@@ -151,7 +153,7 @@ export default function FundCard({ fund }) {
               <div key={a.scheme_code} className="alternatives__row">
                 <div>
                   <div className="alternatives__name">
-                    {a.info_url ? <a href={a.info_url} target="_blank" rel="noopener noreferrer">{a.scheme_name}</a> : a.scheme_name}
+                    <Link to={`/fund/${a.scheme_code}`}>{a.scheme_name}</Link>
                   </div>
                   <div className="alternatives__amc">{a.amc}</div>
                 </div>
