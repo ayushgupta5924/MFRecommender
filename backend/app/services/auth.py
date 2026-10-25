@@ -26,7 +26,7 @@ from app.db.tables import AuthSession, OtpCode, User, utcnow
 logger = logging.getLogger(__name__)
 
 # Bump when the privacy notice (src/constants/privacy.js) changes materially; consents record the version.
-PRIVACY_VERSION = "2026-10-25"
+PRIVACY_VERSION = "2026-10-25.2"
 
 OTP_MINUTES = 10
 OTP_MAX_ATTEMPTS = 5

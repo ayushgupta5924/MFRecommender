@@ -137,6 +137,24 @@ class HoldingsStore(RankingsStore):
         return self.get()["holdings"].get(code) or []
 
 
+class RankHistoryStore(HoldingsStore):
+    """Each ranked fund's weekly position in its category (services/rank_history.py); updated nightly."""
+
+    EMPTY = {"schema_version": 1, "generated_at": "", "funds": {}}
+
+    def __init__(self):
+        rankings_url = os.getenv("RANKINGS_URL", "")
+        RankingsStore.__init__(self, BUNDLED_PATH.with_name("rank_history.json"),
+                               rankings_url.replace("rankings.json", "rank_history.json") if rankings_url else "")
+        self.name = "Rank history"
+
+    def _valid(self, data: dict) -> bool:
+        return isinstance(data, dict) and data.get("schema_version") == 1 and isinstance(data.get("funds"), dict)
+
+    def of(self, code: str) -> list:
+        return self.get()["funds"].get(code) or []
+
+
 # A neutral page with the fund's facts (NAV, expense ratio, holdings, fund manager), addressed by ISIN so the link
 # always lands on the right fund. Coin lists every fund house's Direct plans.
 FUND_PAGE_URL = "https://coin.zerodha.com/mf/fund/{isin}"
@@ -144,3 +162,4 @@ FUND_PAGE_URL = "https://coin.zerodha.com/mf/fund/{isin}"
 store = RankingsStore()
 scheme_map = SchemeMapStore()
 holdings = HoldingsStore()
+rank_history = RankHistoryStore()

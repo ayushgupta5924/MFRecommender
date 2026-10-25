@@ -67,6 +67,11 @@ export const removeHolding = (id) => request(`/api/review/holdings/${encodeURICo
 export const addHolding = (holding) => request("/api/review/holdings", { json: holding });
 export const searchFunds = (q) => request(`/api/funds/search?q=${encodeURIComponent(q)}`);
 
+// ── Fund research: ranked categories and a page for any fund ──
+export const getFundCategories = () => request("/api/funds/categories");
+export const getCategoryFunds = (key) => request(`/api/funds/category/${encodeURIComponent(key)}`);
+export const getFund = (code) => request(`/api/funds/${encodeURIComponent(code)}`);
+
 export function uploadStatement(file, password, consent, alerts) {
   const form = new FormData();
   form.append("file", file);

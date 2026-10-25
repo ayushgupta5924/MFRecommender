@@ -16,6 +16,7 @@ export default function Footer() {
           <nav className="footer__links">
             <Link to="/plan">Build a plan</Link>
             <Link to="/review">Review portfolio</Link>
+            <Link to="/funds">Fund rankings</Link>
             <Link to="/investor-charter">Investor Charter</Link>
             <Link to="/complaints">Complaints data</Link>
             <Link to="/how-advice-works">How our advice works</Link>
