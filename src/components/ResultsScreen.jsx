@@ -11,7 +11,7 @@ import AppBar from "./AppBar";
 import Disclaimer from "./Disclaimer";
 import FundCard from "./FundCard";
 
-const MIX_COLORS = { equity: "#d32f2f", hybrid: "#f57c00", debt: "#388e3c" };
+const MIX_COLORS = { equity: "var(--mix-equity)", hybrid: "var(--mix-hybrid)", debt: "var(--mix-debt)" };
 const MIX_LABELS = { equity: "Equity", hybrid: "Hybrid", debt: "Debt" };
 const SCENARIOS = [
   ["pessimistic", "If markets disappoint"],

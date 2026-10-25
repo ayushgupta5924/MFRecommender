@@ -45,7 +45,7 @@ const COLLEGE_AGE = 18;
 const INFLATION = 0.06;
 const STEPS = 6;
 
-const RISK_COLORS = { Conservative: "#388e3c", Moderate: "#f57c00", Aggressive: "#d32f2f" };
+const RISK_COLORS = { Conservative: "var(--pos)", Moderate: "var(--warn)", Aggressive: "var(--neg)" };
 
 // Rough rates for the live preview only; the final plan uses each fund category's history.
 const INDICATIVE_RETURN = { Conservative: 0.075, Moderate: 0.095, Aggressive: 0.11 };

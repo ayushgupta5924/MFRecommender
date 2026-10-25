@@ -1,213 +1,107 @@
 .stepBadge {
-  flex-shrink: 0;
-  white-space: nowrap;
-  font-size: 12px;
-  color: rgba(255,255,255,0.8);
-  background: rgba(255,255,255,0.15);
-  padding: 4px 10px;
-  border-radius: 20px;
+  flex-shrink: 0; white-space: nowrap; font-size: 12px; font-weight: 700;
+  color: var(--accent-text); background: var(--accent-soft); border: 1px solid var(--accent-line);
+  padding: 5px 11px; border-radius: 999px;
 }
 
-.progressBar {
-  height: 4px;
-  background: #e0e0e0;
-  width: 100%;
-}
+.progressBar { height: 3px; background: var(--border); width: 100%; position: sticky; top: 64px; z-index: 15; }
 .progressBar__fill {
-  height: 100%;
-  background: #1976d2;
-  transition: width 0.3s ease;
+  height: 100%; background: linear-gradient(90deg, var(--accent), var(--accent-2));
+  box-shadow: 0 0 12px var(--accent); transition: width 0.35s ease;
 }
+@media (max-width: 460px) { .progressBar { top: 58px; } }
 
-.stepTitle    { font-size: 22px; font-weight: 800; color: #111; margin-bottom: 6px; }
-.stepSubtitle { font-size: 15px; color: #888; margin-bottom: 24px; }
+.stepTitle { font-family: var(--font-display); font-size: 28px; font-weight: 800; color: var(--text); margin-bottom: 8px; letter-spacing: -0.6px; line-height: 1.15; }
+.stepSubtitle { font-size: 15px; color: var(--text-2); margin-bottom: 26px; line-height: 1.55; }
 
-/* ── Life stage grid ── */
-.stageGrid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 12px;
-  margin-bottom: 24px;
+/* ── Choice cards: life stage and goal ── */
+.stageGrid, .goalGrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 12px; margin-bottom: 24px; }
+.stageCard, .goalCard {
+  font: inherit; width: 100%; padding: 18px 14px; border-radius: 16px; text-align: center; cursor: pointer;
+  border: 1px solid var(--border); background: var(--surface); color: var(--text);
+  transition: border-color 0.15s, background 0.15s, transform 0.15s;
 }
-.stageCard {
-  padding: 16px;
-  border-radius: 14px;
-  border: 1.5px solid #e0e0e0;
-  background: #fff;
-  cursor: pointer;
-  transition: all 0.15s;
-  text-align: center;
+.stageCard:hover, .goalCard:hover { border-color: var(--accent-line); transform: translateY(-2px); }
+.stageCard--selected, .goalCard--selected {
+  border-color: var(--accent); background: var(--accent-soft); box-shadow: 0 0 0 1px var(--accent) inset;
 }
-.stageCard:hover { border-color: #1976d2; background: #f0f7ff; }
-.stageCard--selected { border-color: #1976d2; background: #e8f0fe; }
-.stageCard__emoji { font-size: 28px; margin-bottom: 8px; }
-.stageCard__label { font-size: 14px; font-weight: 700; color: #222; }
-.stageCard__desc  { font-size: 12px; color: #888; margin-top: 3px; }
-
-/* ── Goal grid ── */
-.goalGrid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 12px;
-  margin-bottom: 24px;
-}
-.goalCard {
-  padding: 16px;
-  border-radius: 14px;
-  border: 1.5px solid #e0e0e0;
-  background: #fff;
-  cursor: pointer;
-  transition: all 0.15s;
-  text-align: center;
-}
-.goalCard:hover { border-color: #1976d2; background: #f0f7ff; }
-.goalCard--selected { border-color: #1976d2; background: #e8f0fe; }
-.goalCard__emoji { font-size: 26px; margin-bottom: 8px; }
-.goalCard__label { font-size: 14px; font-weight: 700; color: #222; }
-.goalCard__desc  { font-size: 12px; color: #888; margin-top: 3px; }
+.stageCard__emoji, .goalCard__emoji { font-size: 28px; margin-bottom: 10px; }
+.stageCard__label, .goalCard__label { font-size: 14px; font-weight: 700; color: var(--text); }
+.stageCard__desc, .goalCard__desc { font-size: 12px; color: var(--text-3); margin-top: 4px; line-height: 1.4; }
 
 /* ── Risk options ── */
 .riskOption {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  padding: 16px;
-  border-radius: 12px;
-  border: 1.5px solid #e0e0e0;
-  background: #fafafa;
-  cursor: pointer;
-  margin-bottom: 12px;
-  transition: all 0.15s;
+  display: flex; align-items: center; gap: 14px; padding: 16px; border-radius: 14px; cursor: pointer;
+  border: 1px solid var(--border); background: var(--surface); margin-bottom: 12px; transition: border-color 0.15s;
 }
-.riskOption--selected { border-width: 2px; }
+.riskOption:hover { border-color: var(--accent-line); }
+.riskOption--selected { border-color: var(--accent); background: var(--accent-soft); }
 .riskIcon {
-  width: 46px;
-  height: 46px;
-  border-radius: 12px;
-  background: #eee;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 22px;
-  flex-shrink: 0;
+  width: 46px; height: 46px; border-radius: 12px; background: var(--sunken); border: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: center; font-size: 22px; flex-shrink: 0;
 }
-.riskLabel { font-weight: 700; font-size: 15px; color: #222; }
-.riskDesc  { font-size: 13px; color: #888; margin-top: 2px; }
+.riskLabel { font-weight: 700; font-size: 15px; color: var(--text); }
+.riskDesc { font-size: 13px; color: var(--text-3); margin-top: 2px; }
 
 /* ── SIP result ── */
 .sipResult {
-  background: linear-gradient(135deg, #e8f5e9, #f1f8e9);
-  border: 1px solid #a5d6a7;
-  border-radius: 12px;
-  padding: 16px;
-  margin-top: 16px;
-  text-align: center;
+  background: var(--pos-soft); border: 1px solid color-mix(in srgb, var(--pos) 35%, transparent);
+  border-radius: 16px; padding: 18px; margin-top: 16px; text-align: center;
 }
-.sipResult__label  { font-size: 13px; color: #555; margin-bottom: 6px; }
-.sipResult__amount { font-size: 28px; font-weight: 800; color: #2e7d32; }
-.sipResult__month  { font-size: 15px; font-weight: 400; color: #555; margin-left: 4px; }
-.sipResult__note   { font-size: 12px; color: #777; margin-top: 6px; }
+.sipResult__label { font-size: 13px; color: var(--text-2); margin-bottom: 6px; }
+.sipResult__amount { font-family: var(--font-display); font-size: 32px; font-weight: 800; color: var(--pos); letter-spacing: -0.5px; }
+.sipResult__month { font-size: 15px; font-weight: 500; color: var(--text-2); margin-left: 4px; }
+.sipResult__note { font-size: 12px; color: var(--text-3); margin-top: 6px; }
 
 /* ── Or divider ── */
-.orDivider {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin: 16px 0;
-  color: #bbb;
-  font-size: 13px;
-}
-.orDivider::before,
-.orDivider::after {
-  content: "";
-  flex: 1;
-  border-top: 1px solid #e0e0e0;
-}
+.orDivider { display: flex; align-items: center; gap: 12px; margin: 16px 0; color: var(--text-3); font-size: 13px; }
+.orDivider::before, .orDivider::after { content: ""; flex: 1; border-top: 1px solid var(--border); }
 
-/* ── Step nav ── */
-.stepNav { margin-top: 24px; }
+.stepNav { margin-top: 26px; }
 
-/* ── Powered by ── */
-.poweredBy {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  font-size: 13px;
-  color: #888;
-  margin: 8px 0 20px;
-}
-.poweredBy__link {
-  color: #00b386;
-  font-weight: 700;
-  text-decoration: none;
-  font-size: 14px;
-}
+.poweredBy { display: flex; align-items: center; justify-content: center; gap: 8px; font-size: 13px; color: var(--text-3); margin: 8px 0 20px; }
+.poweredBy__link { color: var(--accent-text); font-weight: 700; text-decoration: none; font-size: 14px; }
 .poweredBy__link:hover { text-decoration: underline; }
-/* ── Card buttons ── */
-.stageCard, .goalCard { font: inherit; width: 100%; }
 
 /* ── Risk questionnaire ── */
-.quizCard { padding: 16px 18px; }
-.quizQuestion { font-size: 15px; font-weight: 700; color: #222; margin-bottom: 12px; }
+.quizCard { padding: 18px 20px; }
+.quizQuestion { font-size: 15px; font-weight: 700; color: var(--text); margin-bottom: 14px; line-height: 1.45; }
 .quizOptions { display: flex; flex-wrap: wrap; gap: 8px; }
 .quizOption {
-  font: inherit;
-  font-size: 13px;
-  padding: 9px 14px;
-  border-radius: 20px;
-  border: 1.5px solid #e0e0e0;
-  background: #fafafa;
-  color: #333;
-  cursor: pointer;
-  transition: all 0.15s;
+  font: inherit; font-size: 13px; padding: 9px 15px; border-radius: 999px; cursor: pointer;
+  border: 1px solid var(--border-strong); background: var(--sunken); color: var(--text-2);
+  transition: border-color 0.15s, background 0.15s, color 0.15s;
 }
-.quizOption:hover { border-color: #1976d2; }
-.quizOption--selected { border-color: #1976d2; background: #e8f0fe; color: #0d47a1; font-weight: 600; }
+.quizOption:hover { border-color: var(--accent); color: var(--text); }
+.quizOption--selected { border-color: var(--accent); background: var(--accent); color: var(--accent-ink); font-weight: 700; }
 
-.riskResult {
-  background: #fff;
-  border: 2px solid;
-  border-radius: 14px;
-  padding: 16px;
-  text-align: center;
-  margin-top: 4px;
-}
-.riskResult__label { font-size: 12px; color: #888; text-transform: uppercase; letter-spacing: 0.5px; }
-.riskResult__value { font-size: 24px; font-weight: 800; margin-top: 4px; }
-.riskResult__score { font-size: 15px; font-weight: 500; color: #888; }
+.riskResult { background: var(--surface); border: 1px solid; border-radius: 16px; padding: 18px; text-align: center; margin-top: 4px; }
+.riskResult__label { font-size: 12px; color: var(--text-3); text-transform: uppercase; letter-spacing: 0.6px; font-weight: 600; }
+.riskResult__value { font-family: var(--font-display); font-size: 26px; font-weight: 800; margin-top: 4px; }
+.riskResult__score { font-size: 15px; font-weight: 500; color: var(--text-3); }
+.riskSplit { display: flex; justify-content: center; flex-wrap: wrap; gap: 6px 18px; font-size: 13px; color: var(--text-2); margin-top: 10px; }
 
 /* ── Field hints & consent ── */
-.fieldHint { font-size: 12px; color: #777; margin-top: 6px; line-height: 1.5; }
-.fieldHint--error { color: #c62828; }
-
-.consentRow {
-  display: flex;
-  gap: 10px;
-  align-items: flex-start;
-  font-size: 13px;
-  color: #555;
-  line-height: 1.5;
-  margin-top: 8px;
-  cursor: pointer;
-}
+.fieldHint { font-size: 12px; color: var(--text-3); margin-top: 6px; line-height: 1.5; }
+.fieldHint--error { color: var(--neg); }
+.consentRow { display: flex; gap: 10px; align-items: flex-start; font-size: 13px; color: var(--text-2); line-height: 1.55; margin-top: 8px; cursor: pointer; }
 .consentRow input { margin-top: 3px; width: 16px; height: 16px; flex-shrink: 0; }
+.consentRow a { color: var(--accent-text); }
 
 @media (max-width: 480px) {
   .stageGrid, .goalGrid { grid-template-columns: 1fr 1fr; gap: 8px; }
-  .stageCard, .goalCard { padding: 12px 8px; }
+  .stageCard, .goalCard { padding: 14px 8px; }
+  .stepTitle { font-size: 24px; }
 }
 
-.riskSplit { display: flex; justify-content: center; flex-wrap: wrap; gap: 6px 18px; font-size: 13px; color: #555; margin-top: 10px; }
-
 /* ── Review ── */
-.reviewCard { padding: 14px 18px; }
+.reviewCard { padding: 16px 20px; }
 .reviewCard__head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
-.reviewCard__title { font-size: 15px; font-weight: 700; color: #111; }
-.reviewCard__edit { font: inherit; font-size: 13px; font-weight: 600; color: #1976d2; background: none; border: none; cursor: pointer; padding: 4px; }
-.reviewRow { display: flex; justify-content: space-between; gap: 12px; font-size: 13px; padding: 5px 0; border-top: 1px solid #f2f2f2; }
-.reviewRow span:first-child { color: #888; }
-.reviewRow span:last-child { color: #222; font-weight: 600; text-align: right; }
+.reviewCard__title { font-size: 15px; font-weight: 700; color: var(--text); }
+.reviewCard__edit { font: inherit; font-size: 13px; font-weight: 600; color: var(--accent-text); background: none; border: none; cursor: pointer; padding: 4px; }
+.reviewRow { display: flex; justify-content: space-between; gap: 12px; font-size: 13px; padding: 7px 0; border-top: 1px solid var(--border); }
+.reviewRow span:first-child { color: var(--text-3); }
+.reviewRow span:last-child { color: var(--text); font-weight: 600; text-align: right; }
 
 .clearAnswers { display: block; margin: 18px auto 0; }
 .clearAnswersNote { text-align: center; font-size: 12px; margin-top: 4px; }
@@ -215,8 +109,8 @@
 /* ── Funds already held ── */
 .heldList { list-style: none; padding: 0; margin: 12px 0; display: flex; flex-direction: column; gap: 6px; }
 .heldList li {
-  display: flex; justify-content: space-between; align-items: center; gap: 12px;
-  font-size: 14px; padding: 8px 12px; background: #fafafa; border-radius: 10px;
+  display: flex; justify-content: space-between; align-items: center; gap: 12px; font-size: 14px; color: var(--text);
+  padding: 10px 12px; background: var(--sunken); border: 1px solid var(--border); border-radius: 12px;
 }
 .heldList li > span:first-child { min-width: 0; overflow-wrap: anywhere; }
-.heldList li > span:last-child { white-space: nowrap; color: #555; font-weight: 600; display: flex; gap: 10px; align-items: center; }
+.heldList li > span:last-child { white-space: nowrap; color: var(--text-2); font-weight: 600; display: flex; gap: 10px; align-items: center; }
