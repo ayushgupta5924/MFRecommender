@@ -5,7 +5,7 @@ goal, so two investors only get the same mix if their situations really match.
 Hard safety rules (short horizons, emergency money) are applied last so nothing
 can override them.
 """
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Sequence, Tuple
 
 from app.models.user import InvestmentGoal, LifeStage, TaxRegime
 from app.services.catalog import BUCKETS
@@ -232,7 +232,7 @@ def max_funds_for(budget: float) -> int:
     return max(1, min(n, int(budget // MIN_SIP)))
 
 
-def consolidate(slots: Dict[str, float], budget: float, hybrid_key: str, protected: List[str] = ()) -> Dict[str, float]:
+def consolidate(slots: Dict[str, float], budget: float, hybrid_key: str, protected: Sequence[str] = ()) -> Dict[str, float]:
     """Merge the smallest slots until the count fits the budget and every SIP is at least MIN_SIP.
 
     Slots merge into a similar bucket first. When a whole equity or debt sleeve is
@@ -254,7 +254,7 @@ def consolidate(slots: Dict[str, float], budget: float, hybrid_key: str, protect
             sleeve = "debt"
         else:
             return {hybrid_key: 1.0}
-        best = max((k for k in slots if sleeve_of(k) == sleeve), key=slots.get)
+        best = max((k for k in slots if sleeve_of(k) == sleeve), key=slots.__getitem__)
         return {best: 1.0}
 
     if has_equity and has_debt:
@@ -276,11 +276,11 @@ def consolidate(slots: Dict[str, float], budget: float, hybrid_key: str, protect
         candidates = [k for k in slots if k not in protected or too_small(k)] or list(slots)
         undersized = [k for k in candidates if too_small(k)]
         if undersized:
-            pick = min(undersized, key=slots.get)
+            pick = min(undersized, key=slots.__getitem__)
         elif len(slots) > limit:
             # Too many funds: shrink within a sleeve before touching the equity/debt balance.
             mergeable = [k for k in candidates if same_sleeve_target(k)]
-            pick = min(mergeable or candidates, key=slots.get)
+            pick = min(mergeable or candidates, key=slots.__getitem__)
         else:
             break
         target = same_sleeve_target(pick) or next(
@@ -296,8 +296,9 @@ def consolidate(slots: Dict[str, float], budget: float, hybrid_key: str, protect
             for sleeve in FALLBACK_SLEEVES[sleeve_of(pick)]:
                 same = [k for k in slots if k != pick and sleeve_of(k) == sleeve]
                 if same:
-                    target = max(same, key=slots.get)
+                    target = max(same, key=slots.__getitem__)
                     break
+        assert target is not None
         slots[target] += slots.pop(pick)
     return slots
 
@@ -308,6 +309,6 @@ def to_amounts(slots: Dict[str, float], budget: float) -> Dict[str, int]:
     amounts = {k: int(_round_to(v * budget, step)) for k, v in slots.items()}
     diff = int(round(budget)) - sum(amounts.values())
     if amounts:
-        largest = max(amounts, key=amounts.get)
+        largest = max(amounts, key=amounts.__getitem__)
         amounts[largest] += diff
     return amounts

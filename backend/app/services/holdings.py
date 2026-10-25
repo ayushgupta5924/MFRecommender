@@ -11,7 +11,7 @@ import io
 import secrets
 from datetime import date
 from decimal import Decimal
-from typing import List, Optional
+from typing import Any, List, Optional
 
 from app.services.rankings_store import scheme_map
 
@@ -54,7 +54,8 @@ def parse_cas(pdf: bytes, password: str) -> dict:
     from casparser.exceptions import CASParseError, IncorrectPasswordError, ParserException
 
     try:
-        data = casparser.read_cas_pdf(io.BytesIO(pdf), password or "")
+        # Any: the folios check below tells the mutual fund CAS apart from NSDL/CDSL ones.
+        data: Any = casparser.read_cas_pdf(io.BytesIO(pdf), password or "")
     except IncorrectPasswordError:
         raise StatementError("Wrong password. It's the one you chose when requesting the statement "
                              "(often your PAN in capitals).")

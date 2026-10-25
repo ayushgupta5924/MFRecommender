@@ -93,7 +93,7 @@ def _round(v: Optional[float], digits: int = 5) -> Optional[float]:
     return round(float(v), digits)
 
 
-def estimate_risk_free(liquid_returns: List[float], default: float = 0.065) -> float:
+def estimate_risk_free(liquid_returns: List[Optional[float]], default: float = 0.065) -> float:
     """Liquid funds' median 1-year return is a good live proxy for the short-term rate."""
     vals = [v for v in liquid_returns if v is not None]
     if len(vals) < 5:
@@ -139,7 +139,7 @@ def build_rankings(schemes: List[Scheme], histories: Dict[str, List[Tuple[str, f
                    index_codes: Optional[Dict[str, str]] = None, facts: Optional[dict] = None,
                    today: Optional[date] = None) -> dict:
     today = today or date.today()
-    series = {}
+    series: Dict[str, Tuple[np.ndarray, np.ndarray]] = {}
     for code in {s.code for s in schemes} | set((index_codes or {}).values()):
         dates, navs = to_series(histories.get(code, []))
         if len(dates) >= 2:
@@ -159,11 +159,12 @@ def build_rankings(schemes: List[Scheme], histories: Dict[str, List[Tuple[str, f
         bucket = BUCKETS[s.bucket]
         dates, navs = series[s.code]
         rolling_years = 3 if bucket.min_years >= 3 else 1
-        m = fund_metrics(dates, navs, risk_free, rolling_years)
-        if m["years_history"] < bucket.min_years:
+        m: dict = fund_metrics(dates, navs, risk_free, rolling_years)
+        if (m["years_history"] or 0) < bucket.min_years:
             continue
         if s.bucket in BENCHMARKS:
-            m.update(relative_metrics(dates, navs, *benchmarks[s.bucket]) if benchmarks[s.bucket]
+            bench = benchmarks[s.bucket]
+            m.update(relative_metrics(dates, navs, *bench) if bench
                      else relative_metrics(dates[:0], navs[:0], dates[:0], navs[:0]))
         m.update(_facts_for(s, (facts or {}).get("facts", {}).get(s.code), facts, bucket, today))
         # Use AMFI's same-day NAV when mfapi lags behind.
@@ -199,7 +200,7 @@ def build_rankings(schemes: List[Scheme], histories: Dict[str, List[Tuple[str, f
             vals = [f[metric] for f in funds if f.get(metric) is not None]
             return _round(median(vals)) if vals else None
 
-        stats = {"count": len(funds)}
+        stats: Dict[str, Optional[float]] = {"count": len(funds)}
         for metric in ("cagr_1y", "cagr_3y", "cagr_5y", "cagr_10y", "volatility", "max_drawdown",
                        "rolling_median", "rolling_p10", "ter", "aum_cr", "excess_return", "down_capture"):
             stats[f"median_{metric}"] = med(metric)

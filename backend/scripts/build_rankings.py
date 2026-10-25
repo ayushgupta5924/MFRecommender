@@ -15,6 +15,7 @@ import sys
 import time
 from datetime import date
 from pathlib import Path
+from typing import Optional
 
 import requests
 
@@ -48,7 +49,7 @@ def get(url: str, timeout: int = 60, attempts: int = 4) -> requests.Response:
     raise RuntimeError(f"Failed to fetch {url}")
 
 
-def fetch_history(code: str, cache_dir: Path = None):
+def fetch_history(code: str, cache_dir: Optional[Path] = None):
     cache_file = cache_dir / f"{code}.json" if cache_dir else None
     if cache_file and cache_file.exists():
         return code, json.loads(cache_file.read_text(encoding="utf-8"))

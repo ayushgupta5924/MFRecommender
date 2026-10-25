@@ -13,7 +13,7 @@ import re
 import time
 from datetime import date
 from statistics import median
-from typing import Callable, Dict, Iterable, List, Optional
+from typing import Any, Callable, Dict, Iterable, List, Optional
 
 FACTS_SCHEMA_VERSION = 1
 HOLDINGS_SCHEMA_VERSION = 1
@@ -60,21 +60,25 @@ def summarise_holdings(rows: List[dict]) -> Optional[dict]:
     rows = [r for r in rows or [] if _num(r.get("percentage_to_aum")) is not None]
     if not rows:
         return None
+
+    def share(r) -> float:          # every row left has a numeric percentage
+        return _num(r["percentage_to_aum"]) or 0.0
+
     pdate = max(r.get("portfolio_date") or "" for r in rows) or None
     rows = [r for r in rows if (r.get("portfolio_date") or None) == pdate]
 
     equity = sorted((r for r in rows if (r.get("security_asset_class") or "").lower().startswith("equity")),
-                    key=lambda r: -_num(r["percentage_to_aum"]))
+                    key=lambda r: -share(r))
     cash = [r for r in rows if not (r.get("security_asset_class") or "").lower().startswith("equity")
             and CASH_RE.search(f"{r.get('company_name') or ''} {r.get('security_name') or ''}")]
     rated = [r for r in rows if r.get("credit_rating")]
     low_grade = [r for r in rated if not HIGH_GRADE_RE.search(r["credit_rating"])]
-    total = sum(_num(r["percentage_to_aum"]) for r in rows)
+    total = sum(share(r) for r in rows)
     if not 80 <= total <= 120:      # a partial or garbled disclosure tells us nothing reliable
         return None
 
     def pct(rs):
-        return round(sum(_num(r["percentage_to_aum"]) for r in rs), 2)
+        return round(sum(share(r) for r in rs), 2)
 
     return {
         "portfolio_date": pdate,
@@ -84,7 +88,7 @@ def summarise_holdings(rows: List[dict]) -> Optional[dict]:
         "cash_pct": pct(cash),
         "low_grade_pct": pct(low_grade) if rated else None,
         "holdings": [[r.get("holding_isin") or "", (r.get("company_name") or "").strip(),
-                      round(_num(r["percentage_to_aum"]), 3)] for r in equity],
+                      round(share(r), 3)] for r in equity],
     }
 
 
@@ -92,7 +96,7 @@ def _managers(value) -> List[str]:
     return [m.strip() for m in re.split(r"[;,]|\band\b", value or "") if m.strip()]
 
 
-def kuvera_facts(get_json: Callable[[str], object], isin_to_code: Dict[str, str], wanted: Iterable[str],
+def kuvera_facts(get_json: Callable[[str], Any], isin_to_code: Dict[str, str], wanted: Iterable[str],
                  sleep: Callable[[float], None] = time.sleep) -> Dict[str, dict]:
     """AMFI code -> facts for the wanted schemes. get_json(url) returns parsed JSON or raises."""
     wanted = set(wanted)
@@ -129,7 +133,7 @@ def kuvera_facts(get_json: Callable[[str], object], isin_to_code: Dict[str, str]
 
 # ── AMFI average AUM ────────────────────────────────────────────────────────
 
-def amfi_scheme_aum(get_json: Callable[[str], object], scheme_map: Dict[str, dict]) -> Dict[str, float]:
+def amfi_scheme_aum(get_json: Callable[[str], Any], scheme_map: Dict[str, dict]) -> Dict[str, float]:
     """Direct-Growth AMFI code -> the whole scheme's average AUM in ₹ crore (every plan and option added up)."""
     years = get_json(AMFI_AAUM_URL)["data"]
     fy = years[0]["id"]
@@ -178,7 +182,7 @@ def update_managers(seen: Dict[str, Dict[str, str]], facts: Dict[str, dict], tod
 
 def manager_info(seen: Dict[str, str], current: List[str], baseline: str, today: date) -> dict:
     """Newest current manager's start (as far as we know) and whether the team changed in the last year."""
-    starts = [seen.get(n) for n in current if seen.get(n)]
+    starts = [s for n in current if (s := seen.get(n))]
     if not starts:
         return {"manager_since": None, "manager_changed": None}
     newest = max(starts)
@@ -244,6 +248,8 @@ def size_note(f: dict, bucket: str, sleeve: str, label: str) -> Optional[str]:
 
 
 def is_fresh(snapshot: Optional[dict], today: date, days: int) -> bool:
+    if not snapshot:
+        return False
     try:
         return (today - date.fromisoformat(snapshot["fetched_at"][:10])).days < days
     except (TypeError, KeyError, ValueError):
