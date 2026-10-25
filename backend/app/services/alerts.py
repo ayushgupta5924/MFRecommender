@@ -77,8 +77,8 @@ def render(user: User, review: dict, changed: List[dict]) -> tuple:
     first = html.escape(user.full_name.split()[0])
     worse = sum(c["worse"] for c in changed)
     n = len(changed)
-    subject = (f"{n} of your funds changed rating" if n > 1 else f"{changed[0]['name']} is now "
-               f"{STATUSES[changed[0]['new']][0].lower()}")
+    subject = (f"{n} of your funds changed rating" if n > 1 else f"{changed[0]['name']} is now rated "
+               f"{STATUSES[changed[0]['new']][0]}")
     s = review["summary"]
     good = review["health"].get("good_pct")
     link = f"{SITE_URL}/review"
@@ -98,7 +98,7 @@ def render(user: User, review: dict, changed: List[dict]) -> tuple:
           <b>{html.escape(c['action']['text'])}</b></div>{alt_line}
       </div>""")
 
-    health_line = (f"{good:.0f}% of your rated money is in funds that are in form or on track."
+    health_line = (f"{good:.0f}% of your rated money is in funds in the top half of their category."
                    if good is not None else "")
     intro = (f"{n} of your funds changed rating since we last wrote"
              + (f", {worse} for the worse." if worse else ", all for the better.")

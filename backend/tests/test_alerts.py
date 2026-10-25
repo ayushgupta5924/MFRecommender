@@ -53,15 +53,15 @@ def test_first_run_only_remembers_ratings(investor):
 def test_a_change_sends_one_email_then_waits_a_month(investor):
     run()                                                    # baseline
     db, p = portfolio(investor)
-    p.alert_snapshot = {TOP: "in_form", BOTTOM: "on_track"}  # as if it was on track last month
+    p.alert_snapshot = {TOP: "in_form", BOTTOM: "on_track"}  # as if it was above average last month
     db.commit(); db.close()
 
     _, sent = run()
     mine = [s for s in sent if s[0][0].startswith("alerts")]
     assert len(mine) == 1
     (to, subject, html, text), kwargs = mine[0]
-    assert "is now out of form" in subject
-    assert "On track" in html and "Out of form" in html and "Stop these emails" in html
+    assert "is now rated Bottom 25%" in subject
+    assert "Above average" in html and "Bottom 25%" in html and "Stop these emails" in html
     assert kwargs["headers"]["List-Unsubscribe-Post"] == "List-Unsubscribe=One-Click"
 
     db, p = portfolio(investor)

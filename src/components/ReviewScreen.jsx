@@ -17,7 +17,7 @@ import Disclaimer from "./Disclaimer";
 const CAS_URL = "https://www.camsonline.com/Investors/Statements/Consolidated-Account-Statement";
 const SLEEVES = [["equity", "Equity", "#d32f2f"], ["hybrid", "Hybrid", "#f57c00"], ["debt", "Debt", "#388e3c"], ["other", "Gold & other", "#7b1fa2"]];
 const STATUS_ORDER = ["in_form", "on_track", "off_track", "out_of_form", "not_rated"];
-const STATUS_LABEL = { in_form: "In form", on_track: "On track", off_track: "Off track", out_of_form: "Out of form", not_rated: "Not rated" };
+const STATUS_LABEL = { in_form: "Top 25%", on_track: "Above average", off_track: "Below average", out_of_form: "Bottom 25%", not_rated: "Not rated" };
 const LEVEL_ICON = { high: "🔴", medium: "🟠", low: "🔵", good: "✅" };
 
 // Fractions from the API (0.123) to "12.3%".
@@ -311,7 +311,7 @@ function Health({ health }) {
       {health.good_pct != null && (
         <div className="healthLine">
           <span className="healthLine__pct">{Math.round(health.good_pct)}%</span>
-          of the money in rated funds is in funds that are <b>in form</b> or <b>on track</b>.
+          of the money in rated funds is in funds in the <b>top half</b> of their category.
         </div>
       )}
       <div className="statusChips">
@@ -322,7 +322,7 @@ function Health({ health }) {
       <div className="mutedText" style={{ marginTop: 10 }}>
         Each fund is compared with every other fund in its category on returns, consistency (rolling returns),
         how far it fell in bad markets, its record against its index, its expense ratio and whether its size suits
-        the category. Top quarter is in form, bottom quarter out of form.
+        the category, and rated by quarter: Top 25%, Above average, Below average or Bottom 25%.
       </div>
     </div>
   );

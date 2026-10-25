@@ -10,9 +10,9 @@ Goal-based mutual fund SIP plans and portfolio reviews for Indian investors.
     it, move new SIPs to the plan's fund or (for short goals) move it out of equity; keeps a held fund that ranks
     in the top half of its category instead of adding another; and, if the investor agrees, counts their value
     towards the goal, which lowers the SIP needed.
-  - Every recommended fund shows the same In form / On track / Off track / Out of form label as the review.
+  - Every recommended fund shows the same Top 25% / Above average / Below average / Bottom 25% label as the review.
 - **Portfolio review** (no login needed): upload a CAMS / KFintech CAS PDF or add funds by hand. Every fund is
-  rated In form / On track / Off track / Out of form against its category, with returns (XIRR), tax lots,
+  rated Top 25% / Above average / Below average / Bottom 25% against its category, with returns (XIRR), tax lots,
   Regular-plan cost, duplicate funds, stock overlap, asset mix against the saved plan and suggested alternatives.
   A guest's holdings stay in that browser tab (only the SEBI advice record is stored); logged-in users keep
   theirs in the account and can opt in to monthly rating-change alerts.
@@ -49,7 +49,7 @@ API request  GET /api/review   (services/review.py)
   ├─ scheme map            Regular / IDCW holdings rated through their Direct-Growth twin
   ├─ mfapi.in              latest NAVs, and Direct vs Regular 1-yr return gap
   ├─ rating                position in the category's nightly ranking, by quarter
-  └─ checks                out-of-form funds, Regular plans, duplicates, too many funds, sector share,
+  └─ checks                bottom-25% funds, Regular plans, duplicates, too many funds, sector share,
                            drift from saved plan, IDCW, unrated funds, LTCG / STCG / ELSS lock-in
 ```
 
