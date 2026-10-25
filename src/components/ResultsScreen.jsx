@@ -19,6 +19,46 @@ const SCENARIOS = [
   ["optimistic", "If markets do well"],
 ];
 
+const HELD_ACTION = {
+  keep: "✅ Keep", watch: "👀 Watch", switch: "🔁 Move new SIPs", move: "⏳ Doesn't suit this goal", review: "ℹ️ Check",
+};
+
+// What to do with each fund the investor already holds, given this plan.
+function HeldFundsAdvice({ existing }) {
+  return (
+    <div className="card">
+      <div className="card__title">
+        Funds you already hold{existing.value > 0 && ` · ${fmt(existing.value)}`}
+      </div>
+      {existing.funds.map((f) => (
+        <div key={f.scheme_code} className="heldAdvice">
+          <div className="heldAdvice__head">
+            <div>
+              <div className="heldAdvice__name">{f.scheme_name}</div>
+              <div className="heldAdvice__meta">{f.category} · {f.plan}</div>
+            </div>
+            <div className="heldAdvice__right">
+              <span className={`statusChip statusChip--${f.rating_status}`}>{f.rating_label}</span>
+              {f.value != null && <span className="heldAdvice__value">{fmt(f.value)}</span>}
+            </div>
+          </div>
+          <div className="heldAdvice__text"><b>{HELD_ACTION[f.action]}.</b> {f.advice}</div>
+        </div>
+      ))}
+      {existing.unpriced.length > 0 && (
+        <div className="mutedText heldAdvice__notes">Left out: {existing.unpriced.join("; ")}.</div>
+      )}
+      {existing.notes.length > 0 && (
+        <div className="projNote">{existing.notes.join(" ")}</div>
+      )}
+      <div className="projNote">
+        Ratings compare each fund with every other fund in its category: top quarter is in form, bottom quarter out of
+        form. <Link to="/review">Review these funds in detail</Link> for returns, tax and overlap.
+      </div>
+    </div>
+  );
+}
+
 function SavePlan({ last, setLast }) {
   const { user, accountsEnabled } = useAuth();
   const [state, setState] = useState({ saving: false, error: "" });
@@ -231,7 +271,9 @@ export default function ResultsScreen() {
             ))}
           </div>
           <div className="projNote">
-            You invest {fmt(results.total_invested)} in total. "Today's money" assumes {results.inflation_assumption}% inflation.
+            You invest {fmt(results.total_invested)} in total
+            {results.existing?.counted && `, on top of the ${fmt(results.existing.value)} you already hold`}.
+            {" "}"Today's money" assumes {results.inflation_assumption}% inflation.
             Projections use each fund category's long-run rolling returns, not guaranteed returns.
           </div>
           {results.target_amount && (
@@ -254,6 +296,8 @@ export default function ResultsScreen() {
             </div>
           </div>
         )}
+
+        {results.existing && <HeldFundsAdvice existing={results.existing} />}
 
         {results.warnings?.length > 0 && (
           <div className="warningBox">

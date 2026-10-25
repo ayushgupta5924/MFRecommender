@@ -164,6 +164,26 @@ body {
 .successText { color: #2e7d32; font-size: 13px; margin-top: 10px; line-height: 1.5; }
 .mutedText { color: #888; font-size: 13px; line-height: 1.5; }
 
+/* ── Fund search (review and plan) ── */
+.plainInput { padding-left: 14px; }
+.fundHits { display: flex; flex-direction: column; gap: 6px; margin-bottom: 12px; max-height: 320px; overflow-y: auto; }
+.fundHit {
+  font: inherit; text-align: left; background: #fafafa; border: 1.5px solid #e0e0e0; border-radius: 10px;
+  padding: 10px 12px; cursor: pointer; display: flex; flex-direction: column; gap: 2px;
+}
+.fundHit:hover { border-color: #1976d2; background: #f0f7ff; }
+.fundHit__name { font-size: 14px; font-weight: 600; color: #222; }
+.fundHit__meta { font-size: 12px; color: #888; }
+.pickedFund { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; padding: 12px; background: #f0f7ff; border-radius: 10px; margin-bottom: 14px; }
+
+/* ── Fund rating: the same quartile labels in the review and the plan ── */
+.statusChip { font-size: 12px; font-weight: 700; padding: 4px 10px; border-radius: 12px; white-space: nowrap; }
+.statusChip--in_form { background: #e8f5e9; color: #2e7d32; }
+.statusChip--on_track { background: #e3f2fd; color: #1565c0; }
+.statusChip--off_track { background: #fff3e0; color: #e65100; }
+.statusChip--out_of_form { background: #ffebee; color: #c62828; }
+.statusChip--not_rated { background: #f0f0f0; color: #666; }
+
 .comingSoon { text-align: center; padding-top: 64px; max-width: 480px; }
 .comingSoon__icon { font-size: 48px; margin-bottom: 12px; }
 .comingSoon .btnBlue { text-decoration: none; margin-top: 8px; }

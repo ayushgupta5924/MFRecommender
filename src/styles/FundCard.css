@@ -192,6 +192,7 @@
 .investBtn:hover { background: #00996f; }
 .fundCard__badges { flex-wrap: wrap; }
 .fundCard__rankPill,
+.fundCard__heldPill,
 .fundCard__lockPill {
   display: inline-flex;
   padding: 3px 10px;
@@ -254,3 +255,5 @@ a.investBtn { display: block; text-align: center; text-decoration: none; }
 .factRow__value { text-align: right; font-weight: 600; color: #212121; }
 .factRow__value small { font-weight: 400; color: #757575; }
 .factWarn { font-size: 13px; background: #fff8e1; border-radius: 8px; padding: 8px 10px; margin-bottom: 10px; color: #6d4c00; }
+
+.fundCard__heldPill { border-color: #d1c4e9; background: #ede7f6; color: #4527a0; }

@@ -1,15 +1,19 @@
+import concurrent.futures
 import math
 from datetime import date
-from typing import Dict, List, Optional, Set
+from typing import Dict, List, Optional, Set, Tuple
 
 from app.models.user import (
-    FundAlternative, FundRecommendation, InvestmentGoal, LifeStage, PortfolioRecommendation,
-    Projection, RiskProfile, RiskTolerance, TaxRegime, UserProfile,
+    ExistingFundAdvice, ExistingPortfolio, FundAlternative, FundRecommendation, InvestmentGoal, LifeStage,
+    PortfolioRecommendation, Projection, RiskProfile, RiskTolerance, TaxRegime, UserProfile,
 )
 from app.services import allocation as alloc
+from app.services import nav as navs
 from app.services.catalog import BUCKETS
 from app.services.fund_facts import size_note
+from app.services.ranking import tidy_name
 from app.services.rankings_store import RankingsStore, scheme_map, store as default_store
+from app.services.review import STATUSES, category_label, rate_fund, sleeve_for
 
 INFLATION = 0.06
 # Long-run return assumptions per sleeve are clamped to these bands so a hot or
@@ -33,6 +37,8 @@ PREFERRED_YEARS = {"equity": 5, "hybrid": 5, "debt": 3}
 # Rough equity share inside each hybrid category, used only to explain the total.
 HYBRID_EQUITY_SHARE = {"multi_asset": 0.5, "balanced_advantage": 0.5, "conservative_hybrid": 0.2}
 RISK_TOLERANCE_SCORE = {RiskTolerance.LOW: 20, RiskTolerance.MODERATE: 50, RiskTolerance.HIGH: 80}
+GOOD_STATUSES = ("in_form", "on_track")
+EXISTING_MIX_GAP = 15                 # points of equity between current funds and the plan before we point it out
 
 PORTFOLIO_NAMES = {
     (LifeStage.JUST_STARTED,     "conservative"): ("🌱 First Step",       "A safe, habit-building start to your investment journey."),
@@ -118,6 +124,11 @@ class RecommendationEngine:
             target = round(target * (1 + INFLATION) ** horizon)
         warnings: List[str] = []
 
+        # 0. Funds already held: valued and rated, and counted towards the goal unless the investor says not to.
+        held, unpriced = self._held(profile, data)
+        held_value = sum(h["value"] or 0 for h in held)
+        counted = held_value if profile.count_existing else 0.0
+
         # 1. Decide the monthly amount. The investor's own budget always wins;
         #    a target only tells us whether that budget (plus any one-time amount) is enough.
         budget = profile.get_budget()
@@ -129,9 +140,12 @@ class RecommendationEngine:
         provisional_mix, provisional_slots = alloc.build_slots(
             score, horizon, profile.life_stage, profile.goal, max(yearly_view, 10_000), profile.tax_regime, fixed)
         expected_rate = self._portfolio_rate(provisional_mix, provisional_slots, data, "expected")
-        sip_needed = self._sip_needed(target, lump, horizon, expected_rate) if target else None
+        sip_needed = self._sip_needed(target, lump + counted, horizon, expected_rate) if target else None
         if budget <= 0 and not lump:
             if not sip_needed:
+                if target and counted:
+                    raise ValueError("The funds you already hold should reach this target on their own. Enter a "
+                                     "monthly or one-time amount if you want to invest more.")
                 raise ValueError("Enter a monthly amount, a one-time amount or a target.")
             budget = max(float(sip_needed), alloc.MIN_SIP)
         if 0 < budget < alloc.MIN_SIP:
@@ -148,15 +162,29 @@ class RecommendationEngine:
         amounts = alloc.to_amounts(slots, base)
 
         # 3. Pick the best fund in each bucket for this investor.
-        funds = self._select_funds(slots, amounts, data, scoring_profile, profile, horizon)
+        # A fund the investor already holds is used for its category when it ranks in the top half.
+        prefer: Dict[str, str] = {}
+        for h in held:
+            if h["bucket"] and h["rating"]["status"] in GOOD_STATUSES:
+                prefer.setdefault(h["bucket"], h["twin"])
+        funds = self._select_funds(slots, amounts, data, scoring_profile, profile, horizon, prefer)
         self._renormalise(funds, base)
         self._split_lump_sum(funds, budget, lump)
+        held_twins = {h["twin"] for h in held}
+        for f in funds:
+            rating = rate_fund(f.scheme_code, f.bucket, data)
+            f.rating_status, f.rating_label = rating["status"], STATUSES[rating["status"]][0]
+            f.already_held = f.scheme_code in held_twins
+            if prefer.get(f.bucket) == f.scheme_code:
+                f.reason += (" You already hold this fund and it ranks in the top half of its category, "
+                             "so the plan keeps using it rather than adding another.")
 
         # 4. Projections at three return scenarios.
         projections = {}
         for scenario in SCENARIO_SHIFT:
             rate = self._portfolio_rate(mix, slots, data, scenario)
-            corpus = sip_future_value(budget, horizon, rate) + lump_future_value(lump, horizon, rate)
+            corpus = (sip_future_value(budget, horizon, rate) + lump_future_value(lump, horizon, rate)
+                      + lump_future_value(counted, horizon, rate))
             projections[scenario] = Projection(
                 annual_return=round(rate * 100, 2),
                 corpus=round(corpus),
@@ -166,7 +194,7 @@ class RecommendationEngine:
 
         goal_status = shortfall = None
         if target:
-            sip_needed = self._sip_needed(target, lump, horizon, expected)
+            sip_needed = self._sip_needed(target, lump + counted, horizon, expected)
             goal_status = "on_track" if projections["expected"].corpus >= target else "shortfall"
             if goal_status == "shortfall":
                 shortfall = float(max(sip_needed - budget, 0))
@@ -181,6 +209,9 @@ class RecommendationEngine:
         name, description = self._name(profile, scoring_profile, mix, horizon)
         plan_note = self._plan_note(profile, score, label, horizon, fixed)
         actual_mix = self._actual_mix(funds)
+        existing = (self._existing_advice(held, unpriced, funds, actual_mix, horizon, held_value,
+                                          profile.count_existing)
+                    if held or unpriced else None)
 
         return PortfolioRecommendation(
             portfolio_name=name,
@@ -202,6 +233,7 @@ class RecommendationEngine:
             projections=projections,
             goal_status=goal_status,
             shortfall_monthly=shortfall,
+            existing=existing,
             risk_profile=RiskProfile(score=round(score, 1), label=label, profile=scoring_profile,
                                      capacity=profile.capacity_score, willingness=profile.willingness_score,
                                      limited_by=limited_by),
@@ -223,7 +255,8 @@ class RecommendationEngine:
 
     @staticmethod
     def _sip_needed(target: float, lump: float, horizon: int, rate: float) -> int:
-        """Monthly SIP that, with the one-time amount, reaches the target; 0 if the one-time amount is enough."""
+        """Monthly SIP that, with the money already there (one-time amount and counted holdings), reaches the
+        target; 0 if that money is enough."""
         remaining = target - lump_future_value(lump, horizon, rate)
         return math.ceil(required_sip(remaining, horizon, rate) / 100) * 100 if remaining > 0 else 0
 
@@ -249,7 +282,7 @@ class RecommendationEngine:
         """Why the plan holds this much equity, hybrid and debt, using the same rules that built it."""
         cap, cap_reason, _ = alloc.equity_limit(horizon, profile.life_stage, profile.goal)
         if cap == 0:
-            return [cap_reason, "The plan uses liquid and short-term debt funds, which rarely fall in value."]
+            return [cap_reason or "", "The plan uses liquid and short-term debt funds, which rarely fall in value."]
 
         target = min(alloc.target_equity(score, horizon, profile.life_stage, profile.goal, fixed), 1.0)
         hybrid_key = alloc.hybrid_bucket(mix["equity"], score, horizon)
@@ -299,6 +332,115 @@ class RecommendationEngine:
         return PORTFOLIO_NAMES.get((profile.life_stage, scoring_profile),
                                    ("📊 Custom Portfolio", "A fund mix based on your profile."))
 
+    # ── Funds already held ───────────────────────────────────────────────────
+
+    def _held(self, profile: UserProfile, data: dict) -> Tuple[List[dict], List[str]]:
+        """The investor's funds merged by scheme, valued today and rated, largest first; and the ones we couldn't use."""
+        if not profile.existing_holdings:
+            return [], []
+        schemes = scheme_map.schemes()
+        merged: Dict[str, dict] = {}
+        unpriced: List[str] = []
+        for h in profile.existing_holdings:
+            s = schemes.get(h.code)
+            if not s:
+                unpriced.append(f"Scheme {h.code} (not recognised: closed or merged)")
+                continue
+            m = merged.setdefault(h.code, {"scheme": s, "units": 0.0, "value": 0.0})
+            if h.value is not None:
+                m["value"] += h.value
+            elif h.units is not None:
+                m["units"] += h.units
+
+        # Units need today's NAV: ranked Direct-Growth funds have it already, others are looked up.
+        ranked_nav = {f["code"]: f.get("nav") for b in data["buckets"].values() for f in b.get("funds", [])}
+        lookup = [c for c, m in merged.items() if m["units"] and not ranked_nav.get(c)]
+        fetched: Dict[str, Optional[tuple]] = {}
+        if lookup:
+            with concurrent.futures.ThreadPoolExecutor(max_workers=8) as pool:
+                fetched = dict(zip(lookup, pool.map(navs.latest_nav, lookup)))
+
+        rows = []
+        for code, m in merged.items():
+            s = m["scheme"]
+            value: Optional[float] = m["value"]
+            if m["units"]:
+                price = ranked_nav.get(code) or (fetched.get(code) or (None,))[0]
+                value = value + m["units"] * price if price else (value or None)
+            name = tidy_name(s["name"]).rstrip(". ")
+            if not value:
+                unpriced.append(f"{name} (couldn't get today's price)")
+            rows.append({"code": code, "name": name, "scheme": s, "twin": s["twin"], "bucket": s["bucket"],
+                         "sleeve": sleeve_for(s), "direct": s["direct"], "value": round(value, 2) if value else None,
+                         "rating": rate_fund(s["twin"], s["bucket"], data)})
+        rows.sort(key=lambda r: -(r["value"] or 0))
+        return rows, unpriced
+
+    @staticmethod
+    def _existing_advice(held: List[dict], unpriced: List[str], funds: List[FundRecommendation],
+                         plan_mix: Dict[str, float], horizon: int, value: float, counted: bool) -> ExistingPortfolio:
+        """What to do with each fund already held, given the plan built for this goal."""
+        pick_for = {f.bucket: f for f in funds}
+        no_equity = plan_mix.get("equity", 0) == 0 and plan_mix.get("hybrid", 0) == 0
+        advice = []
+        for h in held:
+            status = h["rating"]["status"]
+            pick = pick_for.get(h["bucket"])
+            in_plan = bool(pick and pick.scheme_code == h["twin"])
+            switch_to = None
+            if no_equity and h["sleeve"] in ("equity", "hybrid"):
+                action = "move"
+                text = (f"This goal is {horizon} year{'s' if horizon != 1 else ''} away, too soon for equity, so this "
+                        "fund doesn't suit it. Keep it for a longer goal, or move it to the plan's debt funds well "
+                        "before you need the money (check exit load and capital gains tax first).")
+            elif pick and in_plan:
+                action = "keep"
+                text = f"This is the plan's pick for {pick.category}: keep it, and the plan's SIP goes here too."
+                if not h["direct"]:
+                    text += (" Put new money in its Direct plan: you hold the Regular plan, which costs more "
+                             "every year for the same portfolio.")
+            elif status in GOOD_STATUSES:
+                action, text = "keep", "Keep it. It ranks in the top half of its category, so there's no reason to switch."
+            elif status == "off_track":
+                action, text = "watch", STATUSES["off_track"][1]
+            elif status == "out_of_form" and pick:
+                action, switch_to = "switch", pick.scheme_name
+                text = (f"It's in the bottom quarter of its category. Stop new SIPs here: the plan's "
+                        f"{pick.category} fund is {pick.scheme_name}. Before selling existing units, check exit load "
+                        "and capital gains tax.")
+            elif status == "out_of_form":
+                action, text = "switch", STATUSES["out_of_form"][1]
+            elif h["sleeve"] == "other":
+                action, text = "review", "We don't rate gold and similar funds, and they aren't part of this plan's mix."
+            else:
+                action, text = "review", h["rating"]["reason"]
+            if not h["direct"] and action in ("keep", "watch") and not in_plan:
+                text += " You hold the Regular plan; its Direct plan holds the same portfolio for a lower yearly cost."
+            advice.append(ExistingFundAdvice(
+                scheme_code=h["code"], scheme_name=h["name"], category=category_label(h["scheme"]),
+                plan="Direct" if h["direct"] else "Regular", value=h["value"],
+                rating_status=status, rating_label=STATUSES[status][0], action=action, advice=text,
+                switch_to=switch_to))
+
+        mix = {k: 0.0 for k in ("equity", "hybrid", "debt", "other")}
+        for h in held:
+            if h["value"]:
+                mix[h["sleeve"]] += h["value"]
+        mix = {k: round(100 * v / value, 1) if value else 0.0 for k, v in mix.items()}
+
+        notes = []
+        if value and counted:
+            notes.append(f"The {inr(value)} you already hold counts towards this goal, assumed to grow at the "
+                         "plan's rate, so you need a smaller SIP.")
+        elif value:
+            notes.append("Not counted towards this goal, as you asked. The advice on each fund still applies.")
+        if value and abs(mix["equity"] - plan_mix.get("equity", 0)) >= EXISTING_MIX_GAP:
+            notes.append(f"Your current funds are {mix['equity']:.0f}% equity against {plan_mix.get('equity', 0):.0f}% "
+                         "in the plan. New money follows the plan, so the gap narrows as you invest; look at the "
+                         "split again once a year.")
+        return ExistingPortfolio(value=round(value, 2), counted=counted and value > 0, asset_mix=mix,
+                                 funds=advice, notes=notes, unpriced=unpriced)
+
     # ── Fund selection ───────────────────────────────────────────────────────
 
     def _candidates(self, bucket_key: str, data: dict, scoring_profile: str) -> List[dict]:
@@ -314,7 +456,8 @@ class RecommendationEngine:
         return f" with {years}+ years of history" if rank_of < total else ""
 
     def _select_funds(self, slots: Dict[str, float], amounts: Dict[str, int], data: dict,
-                      scoring_profile: str, profile: UserProfile, horizon: int) -> List[FundRecommendation]:
+                      scoring_profile: str, profile: UserProfile, horizon: int,
+                      prefer: Optional[Dict[str, str]] = None) -> List[FundRecommendation]:
         used_amcs: Set[str] = set()
         picks = []
         # Biggest slots choose first so they get first pick of fund houses.
@@ -324,7 +467,9 @@ class RecommendationEngine:
                 continue
             # Spread across fund houses: take the best fund from an AMC not already used, if it is in the top 5.
             # A track record belongs to the managers who built it, so skip funds whose managers changed this year.
-            choice = (next((f for f in candidates[:5] if f["amc"] not in used_amcs and not f.get("manager_changed")), None)
+            # A good fund the investor already holds comes first: no need to add another in the same category.
+            choice = (next((f for f in candidates if f["code"] == (prefer or {}).get(bucket_key)), None)
+                      or next((f for f in candidates[:5] if f["amc"] not in used_amcs and not f.get("manager_changed")), None)
                       or next((f for f in candidates[:5] if f["amc"] not in used_amcs), candidates[0]))
             used_amcs.add(choice["amc"])
             rank = candidates.index(choice) + 1

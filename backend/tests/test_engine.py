@@ -295,3 +295,74 @@ def test_plan_note_explains_a_cautious_plan_for_a_bold_investor():
     free = engine.get_portfolio(UserProfile(life_stage="peak_earning", goal="wealth_creation", risk_tolerance="high",
                                             risk_score=85, monthly_budget=20_000, horizon_years=15))
     assert free.plan_note is None
+
+
+# ── Funds already held ───────────────────────────────────────────────────────
+
+PPFAS_FLEXI = "122639"          # Parag Parikh Flexi Cap, Direct Growth: in form, not the default flexi cap pick
+SHRIRAM_FLEXI_REGULAR = "144902"  # bottom of the flexi cap ranking, Regular plan
+GOLD_ETF = "153357"
+
+
+def _balanced(**kw):
+    base = dict(life_stage="peak_earning", goal="wealth_creation", risk_tolerance="moderate", risk_score=55,
+                monthly_budget=20_000, horizon_years=10)
+    return UserProfile(**{**base, **kw})
+
+
+def test_plan_funds_carry_the_review_rating_label():
+    plan = engine.get_portfolio(_balanced())
+    assert all(f.rating_label in ("In form", "On track", "Off track", "Out of form") for f in plan.funds)
+    assert all(not f.already_held for f in plan.funds)
+    assert plan.existing is None
+
+
+def test_existing_holdings_get_advice_and_a_good_one_is_kept_in_the_plan():
+    held = [{"code": PPFAS_FLEXI, "value": 200_000}, {"code": SHRIRAM_FLEXI_REGULAR, "value": 50_000},
+            {"code": GOLD_ETF, "value": 30_000}, {"code": "999999999", "value": 10_000}]
+    plan = engine.get_portfolio(_balanced(existing_holdings=held))
+    flexi = next(f for f in plan.funds if f.bucket == "flexi_cap")
+    assert flexi.scheme_code == PPFAS_FLEXI and flexi.already_held
+    assert "already hold this fund" in flexi.reason
+
+    advice = {a.scheme_code: a for a in plan.existing.funds}
+    assert advice[PPFAS_FLEXI].action == "keep" and "plan's pick" in advice[PPFAS_FLEXI].advice
+    shriram = advice[SHRIRAM_FLEXI_REGULAR]
+    assert (shriram.action, shriram.rating_status, shriram.plan) == ("switch", "out_of_form", "Regular")
+    assert shriram.switch_to == flexi.scheme_name
+    assert advice[GOLD_ETF].action == "review"
+    assert any("999999999" in u for u in plan.existing.unpriced)
+    assert plan.existing.value == 280_000 and plan.existing.counted
+
+
+def test_counted_holdings_raise_the_projection_and_lower_the_sip_needed():
+    goal = dict(target_amount=10_000_000, target_years=10)
+    without = engine.get_portfolio(_balanced(**goal))
+    counted = engine.get_portfolio(_balanced(existing_holdings=[{"code": PPFAS_FLEXI, "value": 1_000_000}], **goal))
+    ignored = engine.get_portfolio(_balanced(existing_holdings=[{"code": PPFAS_FLEXI, "value": 1_000_000}],
+                                             count_existing=False, **goal))
+    assert counted.projections["expected"].corpus > without.projections["expected"].corpus
+    assert counted.monthly_sip_required < without.monthly_sip_required
+    assert ignored.projections["expected"].corpus == without.projections["expected"].corpus
+    assert ignored.monthly_sip_required == without.monthly_sip_required
+    assert not ignored.existing.counted and ignored.existing.funds
+
+
+def test_units_are_valued_at_the_ranked_nav():
+    nav = next(f["nav"] for f in engine.rankings.get()["buckets"]["flexi_cap"]["funds"] if f["code"] == PPFAS_FLEXI)
+    plan = engine.get_portfolio(_balanced(existing_holdings=[{"code": PPFAS_FLEXI, "units": 10}]))
+    assert plan.existing.funds[0].value == pytest.approx(10 * nav, abs=0.01)
+
+
+def test_equity_held_for_a_short_goal_is_flagged_to_move():
+    plan = engine.get_portfolio(_balanced(goal="buy_home", life_stage="home_buyer", horizon_years=2,
+                                          existing_holdings=[{"code": PPFAS_FLEXI, "value": 100_000}]))
+    assert plan.asset_mix["equity"] == 0
+    assert plan.existing.funds[0].action == "move"
+    assert plan.existing.asset_mix["equity"] == 100
+
+
+def test_holdings_that_already_reach_the_target_need_an_amount_to_invest():
+    with pytest.raises(ValueError, match="already hold should reach this target"):
+        engine.get_portfolio(_balanced(monthly_budget=None, target_amount=500_000, target_years=10,
+                                       existing_holdings=[{"code": PPFAS_FLEXI, "value": 1_000_000}]))

@@ -72,9 +72,18 @@ export default function FundCard({ fund }) {
         <div className="fundCard__badges">
           <span className="fundCard__pill" style={{ background: color }}>{fund.category || "Fund"}</span>
           <span className="fundCard__riskPill" style={{ color, borderColor: color + "44" }}>{risk || "—"} Risk</span>
-          {fund.rank != null && (
-            <span className="fundCard__rankPill">#{fund.rank} of {fund.rank_of}</span>
+          {fund.rating_label && (
+            <span className={`statusChip statusChip--${fund.rating_status}`}
+              title="Where it ranks in its whole category, as the portfolio review rates it: top quarter is in form, bottom quarter out of form.">
+              {fund.rating_label}
+            </span>
           )}
+          {fund.rank != null && (
+            <span className="fundCard__rankPill" title="Its rank among the funds we pick from for your risk profile.">
+              #{fund.rank} of {fund.rank_of}
+            </span>
+          )}
+          {fund.already_held && <span className="fundCard__heldPill">You hold this</span>}
           {fund.lock_in_years > 0 && <span className="fundCard__lockPill">🔒 {fund.lock_in_years}-yr lock-in</span>}
         </div>
         <div className="fundCard__name">{fund.scheme_name || "Unknown Fund"}</div>
