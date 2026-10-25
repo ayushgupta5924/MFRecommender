@@ -3,7 +3,7 @@
 // When this changes materially, bump PRIVACY_VERSION here AND in backend/app/services/auth.py, so
 // consents record which version people agreed to. Have it reviewed by your legal / compliance adviser.
 
-export const PRIVACY_VERSION = "2026-10-24";
+export const PRIVACY_VERSION = "2026-10-25";
 
 export const PRIVACY = [
   {
@@ -11,7 +11,7 @@ export const PRIVACY = [
     items: [
       { what: "Questionnaire answers", detail: "Age, life stage, goal, income, expenses, loan EMIs, dependents, savings, insurance and your answers on risk.", why: "To assess your risk profile and suitability and build your plan, as SEBI requires before giving advice." },
       { what: "Account details", detail: "Your full name and email address.", why: "To create your account, log you in with one-time codes, and send emails you ask for." },
-      { what: "Your fund holdings", detail: "From a statement you upload or funds you add: scheme names, units, amounts invested and transactions. From a statement we do not keep your PAN, address, phone number, folio numbers or the PDF itself. If you review without an account, your holdings are not stored on our servers: they stay in your browser tab until you close it, and only the record of advice below is kept.", why: "To review your portfolio and, if you have an account and switch it on, alert you when a fund's rating changes." },
+      { what: "Your fund holdings", detail: "From a statement you upload, funds you fetch from MF Central with your PAN, or funds you add: scheme names, units, amounts invested and transactions. We do not keep your PAN, name, address, phone number, email, bank details, folio numbers or the statement PDF. If you review without an account, your holdings are not stored on our servers: they stay in your browser tab until you close it, and only the record of advice below is kept.", why: "To review your portfolio and, if you have an account and switch it on, alert you when a fund's rating changes." },
       { what: "Records of advice", detail: "Your answers and the plans and reviews we showed you.", why: "SEBI requires investment advisers to keep records of advice, including for people who have not yet become clients." },
       { what: "Technical data", detail: "A login cookie (only after you log in), your questionnaire answers kept in your own browser so a page refresh doesn't lose them, and a review done without an account, kept in your browser tab until you close it.", why: "To keep you logged in and the site working. We do not use advertising or tracking cookies." },
     ],
@@ -31,6 +31,7 @@ export const PRIVACY = [
     points: [
       "We do not sell your data or share it for marketing.",
       "Service providers who process it on our behalf: Vercel (website hosting), Render (application server), Neon (database), Resend (sending emails). They may store data outside India.",
+      "If you fetch your funds with your PAN: we send your PAN and the mobile number or email you enter to smallcase Technologies (our technology partner) and MF Central (run by CAMS and KFintech, the registrars of all mutual funds), only to find your funds and send you a one-time password. They return your holdings to us, and we keep only the fund-level data described above.",
       "We look up fund prices from AMFI and mfapi.in using only fund codes, never your personal details.",
       "Regulators or authorities, such as SEBI, when the law requires it.",
     ],

@@ -11,7 +11,8 @@ Goal-based mutual fund SIP plans and portfolio reviews for Indian investors.
     in the top half of its category instead of adding another; and, if the investor agrees, counts their value
     towards the goal, which lowers the SIP needed.
   - Every recommended fund shows the same Top 25% / Above average / Below average / Bottom 25% label as the review.
-- **Portfolio review** (no login needed): upload a CAMS / KFintech CAS PDF or add funds by hand. Every fund is
+- **Portfolio review** (no login needed): fetch funds by PAN from MF Central (read-only, OTP to the investor's
+  registered mobile or email), upload a CAMS / KFintech CAS PDF, or add funds by hand. Every fund is
   rated Top 25% / Above average / Below average / Bottom 25% against its category, with returns (XIRR), tax lots,
   Regular-plan cost, duplicate funds, stock overlap, asset mix against the saved plan and suggested alternatives.
   A guest's holdings stay in that browser tab (only the SEBI advice record is stored); logged-in users keep
@@ -117,6 +118,9 @@ python -m scripts.build_rankings --cache-dir ../.cache/mf
     `portfolio-alerts.yml` (weekly). Without it portfolio alert emails don't run.
   - `SITE_URL` (optional) — public site address used in email links; defaults to the Vercel URL.
   - `BRAND_NAME` (optional) — name used in login emails; defaults to "MF Advisor".
+  - `SMALLCASE_GATEWAY_NAME`, `SMALLCASE_API_SECRET`, `SMALLCASE_JWT_SECRET` — from smallcase Gateway onboarding
+    (MF Holdings Import). They switch on **Fetch with PAN**; without them the tab stays hidden. Ask smallcase to
+    register the webhook `https://<your-vercel-domain>/api/pan/webhook`. MF Central bills each fetch.
 
 The nightly data commit contains `[skip render]`, so it doesn't trigger a Render redeploy.
 
@@ -152,6 +156,9 @@ The nightly data commit contains `[skip render]`, so it doesn't trigger a Render
 | POST / DELETE | `/api/review/holdings[/{id}]` | Add a fund by hand, remove one |
 | GET | `/api/review/holdings` | The saved portfolio's funds and units only (no review), for a new plan |
 | POST | `/api/review/guest`, `/api/review/guest/upload` | Review without an account; the browser sends the holdings |
+| POST | `/api/pan/start` | PAN + registered mobile or email → smallcase transaction for MF Central's OTP window |
+| POST | `/api/pan/webhook` | smallcase posts the holdings here (HMAC checksum checked) |
+| POST | `/api/pan/status` | Poll a PAN fetch; when the holdings are in, returns the review and clears them |
 | GET | `/api/funds/search?q=` | Any open-ended scheme by name |
 | GET / POST / DELETE | `/api/plans[/{id}]` | Saved plans |
 
@@ -191,8 +198,9 @@ Example request:
 
 ## Privacy
 
-From a CAS we keep only fund-level data (scheme, units, cost, transactions). The investor's name, PAN, email,
-phone and address on the statement, and the PDF itself, are never stored. Login codes and session tokens are
+From a CAS or a PAN fetch we keep only fund-level data (scheme, units, cost, transactions). The investor's name,
+PAN, email, phone, address and bank details, and the PDF itself, are never stored. A PAN fetch's holdings wait in
+`pan_fetches` only until the browser collects them (a day at most). Login codes and session tokens are
 stored only as HMACs. Users can delete their portfolio or their whole account from the app.
 
 Every plan and portfolio review shown is kept in `advice_records` (inputs, risk profile and the advice itself)

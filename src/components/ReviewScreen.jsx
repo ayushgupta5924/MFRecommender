@@ -3,22 +3,28 @@ import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../auth";
 import { COMPLIANCE } from "../constants/compliance";
 import {
-  addHolding, deleteReview, getReview, guestReview, guestUpload, removeHolding, searchFunds, uploadStatement,
+  aaStatus, addHolding, deleteReview, getReview, guestReview, guestUpload, panStatus, removeHolding, searchFunds,
+  startAaFetch, startPanFetch, uploadStatement,
 } from "../api";
 import "../styles/InputScreen.css";
 import "../styles/ResultsScreen.css";
 import "../styles/ReviewScreen.css";
 import "../styles/shared.css";
 import { fmt, fmtDate } from "../utils/format";
-import { GUEST_REVIEW_KEY, loadSession, saveSession } from "../utils/storage";
+import { AA_PENDING_KEY, GUEST_REVIEW_KEY, loadSession, saveSession } from "../utils/storage";
 import AppBar from "./AppBar";
 import Disclaimer from "./Disclaimer";
 
 const CAS_URL = "https://www.camsonline.com/Investors/Statements/Consolidated-Account-Statement";
-const SLEEVES = [["equity", "Equity", "#d32f2f"], ["hybrid", "Hybrid", "#f57c00"], ["debt", "Debt", "#388e3c"], ["other", "Gold & other", "#7b1fa2"]];
+const SLEEVES = [["equity", "Equity", "var(--mix-equity)"], ["hybrid", "Hybrid", "var(--mix-hybrid)"], ["debt", "Debt", "var(--mix-debt)"],
+  ["other", "Gold & other", "var(--mix-other)"]];
 const STATUS_ORDER = ["in_form", "on_track", "off_track", "out_of_form", "not_rated"];
 const STATUS_LABEL = { in_form: "Top 25%", on_track: "Above average", off_track: "Below average", out_of_form: "Bottom 25%", not_rated: "Not rated" };
 const LEVEL_ICON = { high: "🔴", medium: "🟠", low: "🔵", good: "✅" };
+const AA_POLL_MS = 3000;
+const AA_WAIT_MS = 3 * 60 * 1000;     // registrars usually answer within a minute
+const PAN_POLL_MS = 3000;
+const PAN_WAIT_MS = 3 * 60 * 1000;    // MF Central usually sends the holdings within a minute of the OTP
 
 // Fractions from the API (0.123) to "12.3%".
 const pctF = (v, digits = 1) => (v == null ? "—" : `${v < 0 ? "−" : ""}${Math.abs(v * 100).toFixed(digits)}%`);
@@ -34,6 +40,7 @@ const accountSource = {
   add: addHolding,
   remove: removeHolding,
   clear: async () => { await deleteReview(); return { empty: true }; },
+  fetchDone: (r) => r.review,                // already saved to the account
 };
 
 function keepGuest(r, statement) {
@@ -41,7 +48,7 @@ function keepGuest(r, statement) {
   const funds = r.review.holdings.map(({ code, name, units, value }) => ({ code, name, units, value }));
   const kept = { holdings: r.holdings, funds, statement: r.statement || statement || null };
   saveSession(GUEST_REVIEW_KEY, kept);
-  return { ...r.review, statement: kept.statement, parse_warnings: r.parse_warnings };
+  return { ...r.review, statement: kept.statement, parse_warnings: r.parse_warnings, fetch_warnings: r.fetch_warnings };
 }
 
 const guestSource = {
@@ -69,6 +76,12 @@ const guestSource = {
     return keepGuest(await guestReview(rest), saved.statement);
   },
   clear: async () => { saveSession(GUEST_REVIEW_KEY, undefined); return { empty: true }; },
+  // Fetched funds replace an earlier import, like a new statement; funds added by hand stay.
+  fetchDone: async (r) => {
+    const manual = (loadSession(GUEST_REVIEW_KEY, null)?.holdings || []).filter((h) => h.source === "manual");
+    if (!manual.length) return keepGuest(r);
+    return { ...keepGuest(await guestReview([...r.holdings, ...manual]), r.statement), fetch_warnings: r.fetch_warnings };
+  },
 };
 
 // ── Import: CAS upload or manual entry ──────────────────────────────────────
@@ -162,6 +175,160 @@ function UploadStatement({ source, onDone }) {
           ? "Without an account your holdings stay in this browser tab and are gone when you close it."
           : "You can delete your portfolio at any time."}{" "}
         A record of the advice we give is kept for 5 years, as SEBI requires.
+      </div>
+    </form>
+  );
+}
+
+// One-time, read-only consent through an Account Aggregator. The AA asks for the PAN, so we never see it.
+function FetchByMobile({ source }) {
+  const c = useImportConsent();
+  const [mobile, setMobile] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const valid = /^[6-9]\d{9}$/.test(mobile);
+
+  const submit = async (e) => {
+    e.preventDefault();
+    setBusy(true); setError("");
+    try {
+      const r = await startAaFetch(mobile, c.consent, c.alerts);
+      saveSession(AA_PENDING_KEY, { id: r.id, key: r.key });
+      c.afterImport();
+      window.location.assign(r.url);       // the AA's consent screens; they send the investor back to /review
+    } catch (err) {
+      setError(err.message);
+      setBusy(false);
+    }
+  };
+
+  return (
+    <form onSubmit={submit}>
+      <ol className="casSteps">
+        <li>Enter the mobile number linked to your mutual funds (the one in your KYC).</li>
+        <li>You'll go to an RBI-licensed Account Aggregator. It asks for your PAN to find your funds, and you approve a
+          one-time, <b>read-only</b> consent with an OTP.</li>
+        <li>You come straight back here to your review. We withdraw the consent as soon as the data arrives.</li>
+      </ol>
+      <div className="fieldWrap">
+        <label className="fieldLabel" htmlFor="aaMobile">Mobile number</label>
+        <input id="aaMobile" type="tel" inputMode="numeric" maxLength={10} autoComplete="tel-national"
+          className="fieldInput plainInput" value={mobile} placeholder="10-digit mobile number"
+          onChange={(e) => setMobile(e.target.value.replace(/\D/g, ""))} />
+        {mobile.length === 10 && !valid && <div className="fieldHint fieldHint--error">Enter a valid Indian mobile number.</div>}
+      </div>
+      <ImportConsent {...c} guest={source.guest} />
+      <button className="btnBlue" type="submit" disabled={busy || !valid || !c.consent}>
+        {busy ? "Opening the Account Aggregator…" : "Fetch my funds"}
+      </button>
+      {error && <div className="errorText">{error}</div>}
+      <div className="mutedText privacyNote">
+        🔒 Read-only: nobody can buy, sell or move money with this consent. We never see your PAN, don't keep your
+        mobile number, and ask only for your funds and their transactions.{" "}
+        {source.guest
+          ? "Without an account your holdings stay in this browser tab and are gone when you close it."
+          : "You can delete your portfolio at any time."}
+      </div>
+    </form>
+  );
+}
+
+// smallcase's SDK, loaded only when someone fetches by PAN.
+function loadScript(src) {
+  if (window.scDK) return Promise.resolve();
+  return new Promise((resolve, reject) => {
+    const s = document.createElement("script");
+    s.src = src;
+    s.onload = () => resolve();
+    s.onerror = () => reject(new Error("We couldn't load MF Central's sign-in window. Check your connection and try again."));
+    document.body.appendChild(s);
+  });
+}
+
+const PAN_RE = /^[A-Z]{5}\d{4}[A-Z]$/;
+const MOBILE_RE = /^[6-9]\d{9}$/;
+const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
+
+// Read-only fetch from MF Central by PAN. MF Central sends an OTP to the mobile or email registered with the funds,
+// and the investor enters it in smallcase's window, so only they can fetch them.
+function FetchByPan({ source, onDone }) {
+  const c = useImportConsent();
+  const [pan, setPan] = useState("");
+  const [contact, setContact] = useState("");
+  const [stage, setStage] = useState("");          // "" | "otp" | "fetching"
+  const [error, setError] = useState("");
+  const isEmail = contact.includes("@");
+  const contactOk = isEmail ? EMAIL_RE.test(contact) : MOBILE_RE.test(contact);
+  const valid = PAN_RE.test(pan) && contactOk;
+
+  const waitForHoldings = async (id, key) => {
+    const until = Date.now() + PAN_WAIT_MS;
+    while (Date.now() < until) {
+      const r = await panStatus(id, key);
+      if (r.status === "done" && (r.review || r.holdings)) return r;
+      if (r.status === "failed") throw new Error(r.message);
+      if (r.status === "done") throw new Error("These holdings were already fetched. Please start again.");
+      await new Promise((ok) => setTimeout(ok, PAN_POLL_MS));
+    }
+    throw new Error("MF Central is taking longer than usual. Please try again in a few minutes, or upload your statement.");
+  };
+
+  const submit = async (e) => {
+    e.preventDefault();
+    setError(""); setStage("otp");
+    try {
+      const start = await startPanFetch(pan, isEmail ? { email: contact } : { mobile: contact }, c.consent, c.alerts);
+      await loadScript(start.sdk);
+      const gateway = new window.scDK({ gateway: start.gateway, smallcaseAuthToken: start.token });
+      try {
+        await gateway.triggerTransaction({ transactionId: start.id });
+      } catch {
+        throw new Error("The MF Central window was closed before your funds were fetched, so nothing was imported.");
+      }
+      setStage("fetching");
+      const r = await waitForHoldings(start.id, start.key);
+      c.afterImport();
+      onDone(await source.fetchDone(r));
+    } catch (err) {
+      setError(err.message);
+      setStage("");
+    }
+  };
+
+  return (
+    <form onSubmit={submit}>
+      <ol className="casSteps">
+        <li>Enter your PAN and the mobile number or email registered with your mutual funds.</li>
+        <li>MF Central (run by CAMS and KFintech) sends a one-time password there. Enter it in the window that opens.</li>
+        <li>Your funds from every fund house come straight into your review.</li>
+      </ol>
+      <div className="fieldWrap">
+        <label className="fieldLabel" htmlFor="panNo">PAN</label>
+        <input id="panNo" maxLength={10} autoComplete="off" spellCheck={false}
+          className="fieldInput plainInput" value={pan} placeholder="ABCDE1234F"
+          onChange={(e) => setPan(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ""))} />
+        {pan.length === 10 && !PAN_RE.test(pan) && <div className="fieldHint fieldHint--error">That isn't a valid PAN.</div>}
+      </div>
+      <div className="fieldWrap">
+        <label className="fieldLabel" htmlFor="panContact">Mobile number or email registered with your funds</label>
+        <input id="panContact" autoComplete="off" className="fieldInput plainInput" value={contact}
+          placeholder="10-digit mobile or email" onChange={(e) => setContact(e.target.value.trim())} />
+        {contact.length >= 10 && !contactOk && (
+          <div className="fieldHint fieldHint--error">Enter a 10-digit Indian mobile number or an email address.</div>
+        )}
+      </div>
+      <ImportConsent {...c} guest={source.guest} />
+      <button className="btnBlue" type="submit" disabled={!!stage || !valid || !c.consent}>
+        {stage === "otp" ? "Waiting for the OTP…" : stage === "fetching" ? "Fetching your funds…" : "Fetch my funds"}
+      </button>
+      {error && <div className="errorText">{error}</div>}
+      <div className="mutedText privacyNote">
+        🔒 Read-only: this can't buy, sell or move anything. Your PAN and contact are sent to MF Central (through our
+        technology partner smallcase) only to find your funds; we don't keep them, or your name, address or bank
+        details. We keep fund-level data only.{" "}
+        {source.guest
+          ? "Without an account your holdings stay in this browser tab and are gone when you close it."
+          : "You can delete your portfolio at any time."}
       </div>
     </form>
   );
@@ -263,18 +430,21 @@ function AddFund({ source, onDone }) {
 }
 
 function ImportPanel({ source, onDone, onCancel }) {
-  const [tab, setTab] = useState("upload");
+  const { aaEnabled, panEnabled } = useAuth();
+  const [tab, setTab] = useState(panEnabled ? "pan" : aaEnabled ? "aa" : "upload");
+  const tabs = [panEnabled && ["pan", "🪪 Fetch with PAN"], aaEnabled && ["aa", "📱 Fetch with mobile"],
+    ["upload", "📄 Upload statement"], ["manual", "✍️ Add by hand"]];
   return (
     <div className="card">
       <div className="importTabs">
-        <button className={`importTab ${tab === "upload" ? "importTab--on" : ""}`} onClick={() => setTab("upload")}>
-          📄 Upload statement
-        </button>
-        <button className={`importTab ${tab === "manual" ? "importTab--on" : ""}`} onClick={() => setTab("manual")}>
-          ✍️ Add funds by hand
-        </button>
+        {tabs.filter(Boolean).map(([k, label]) => (
+          <button key={k} className={`importTab ${tab === k ? "importTab--on" : ""}`} onClick={() => setTab(k)}>{label}</button>
+        ))}
       </div>
-      {tab === "upload" ? <UploadStatement source={source} onDone={onDone} /> : <AddFund source={source} onDone={onDone} />}
+      {tab === "pan" && <FetchByPan source={source} onDone={onDone} />}
+      {tab === "aa" && <FetchByMobile source={source} />}
+      {tab === "upload" && <UploadStatement source={source} onDone={onDone} />}
+      {tab === "manual" && <AddFund source={source} onDone={onDone} />}
       {onCancel && <button className="linkBtn cancelImport" onClick={onCancel}>Cancel</button>}
     </div>
   );
@@ -522,21 +692,61 @@ function GuestNote() {
   );
 }
 
+// The investor is back from approving an Account Aggregator consent: ask until the data is in. One request per
+// consent even if the screen mounts twice (React's strict mode), since the holdings are handed over only once.
+let aaInFlight = null;
+function waitForAa({ id, key }) {
+  if (aaInFlight?.id === id) return aaInFlight.promise;
+  const promise = (async () => {
+    const until = Date.now() + AA_WAIT_MS;
+    while (Date.now() < until) {
+      const r = await aaStatus(id, key);
+      if (r.status === "done" && (r.review || r.holdings)) return r;
+      if (r.status === "failed") throw new Error(r.message);
+      if (r.status === "done") throw new Error("These holdings were already fetched. Please start again.");
+      await new Promise((ok) => setTimeout(ok, AA_POLL_MS));
+    }
+    throw new Error("Your fund registrars are taking longer than usual. Please try again in a few minutes, or upload "
+      + "your statement instead.");
+  })();
+  aaInFlight = { id, promise };
+  return promise;
+}
+
 export default function ReviewScreen() {
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, panEnabled } = useAuth();
   // undefined until we know whether someone is logged in.
   const source = useMemo(() => (user === undefined ? undefined : user ? accountSource : guestSource), [user]);
   const [data, setData] = useState(null);
   const [error, setError] = useState("");
   const [importing, setImporting] = useState(false);
+  // Back from the Account Aggregator with a fetch still to collect.
+  const [fetchingAa, setFetchingAa] = useState(() => !!loadSession(AA_PENDING_KEY, null));
 
   useEffect(() => {
     if (!source) return;
     let live = true;
-    source.load().then((d) => live && setData(d)).catch((e) => live && setError(e.message));
+    const pending = loadSession(AA_PENDING_KEY, null);
+    if (!pending) {
+      source.load().then((d) => live && setData(d)).catch((e) => live && setError(e.message));
+      return () => { live = false; };
+    }
+    waitForAa(pending)
+      .then((r) => source.fetchDone(r))
+      .then((d) => { if (live) setData(d); })
+      .catch(async (e) => {
+        if (!live) return;
+        setError(e.message);
+        // Still show whatever was there before.
+        try { const d = await source.load(); if (live) setData(d); } catch { /* the error above is enough */ }
+      })
+      .finally(() => {
+        saveSession(AA_PENDING_KEY, undefined);
+        if (live) { setFetchingAa(false); navigate("/review", { replace: true }); }
+      });
     return () => { live = false; };
-  }, [source]);
+  }, [source, navigate]);
 
   const replace = (d) => { setData(d); setImporting(false); window.scrollTo(0, 0); };
   const onRemove = async (id) => {
@@ -554,7 +764,12 @@ export default function ReviewScreen() {
       <AppBar title="Portfolio review" onBack={() => navigate("/")} />
       <div className="body">
         {error && <div className="errorText" style={{ marginBottom: 16 }}>{error}</div>}
-        {!data && !error && <div className="pageLoading">Loading your portfolio… (the server can take up to a minute to wake up)</div>}
+        {!data && !error && (
+          <div className="pageLoading">
+            {fetchingAa ? "Fetching your funds from your fund registrars… This usually takes under a minute."
+              : "Loading your portfolio… (the server can take up to a minute to wake up)"}
+          </div>
+        )}
 
         {data?.empty && (
           <>
@@ -574,6 +789,12 @@ export default function ReviewScreen() {
               <div className="warningBox">
                 <div className="warningBox__title">Some lines in the statement didn't add up</div>
                 <div className="warningBox__item">Figures for those funds may be slightly off.</div>
+              </div>
+            )}
+            {data.fetch_warnings?.length > 0 && (
+              <div className="warningBox">
+                <div className="warningBox__title">Some of your funds didn't come through fully</div>
+                {data.fetch_warnings.map((w) => <div key={w} className="warningBox__item">{w}</div>)}
               </div>
             )}
             {source.guest && <GuestNote />}
@@ -599,7 +820,7 @@ export default function ReviewScreen() {
 
             {importing ? <ImportPanel source={source} onDone={replace} onCancel={() => setImporting(false)} /> : (
               <div className="resultsActions">
-                <button className="btnOutline" onClick={() => setImporting(true)}>📄 Upload a newer statement or add a fund</button>
+                <button className="btnOutline" onClick={() => setImporting(true)}>{panEnabled ? "🔄 Fetch again, upload a statement or add a fund" : "📄 Upload a newer statement or add a fund"}</button>
                 <button className="btnDanger" onClick={onDeleteAll}>
                   {source.guest ? "Clear this review" : "Delete my imported portfolio"}
                 </button>

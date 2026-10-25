@@ -24,6 +24,8 @@ export function save(key, value) {
 
 // A guest's portfolio review, kept only for this browser tab (gone when the tab closes).
 export const GUEST_REVIEW_KEY = "mfa:guestReview";
+// An Account Aggregator fetch in progress ({id, key}), kept while the investor is away approving it.
+export const AA_PENDING_KEY = "mfa:aaPending";
 
 export function loadSession(key, fallback) {
   try {
