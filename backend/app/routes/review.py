@@ -62,6 +62,14 @@ def get_review(user: User = Depends(current_user), db: Session = Depends(get_db)
     return _review(db, user, p)
 
 
+@router.get("/review/holdings")
+def list_holdings(user: User = Depends(current_user), db: Session = Depends(get_db)):
+    """Just the funds and units in the imported portfolio, for using them in a new plan (no review, no record)."""
+    p = _portfolio(db, user)
+    return [{"code": h["code"], "name": h["name"], "units": h["units"]}
+            for h in (p.holdings if p else []) if h.get("code")]
+
+
 @router.post("/review/upload")
 async def upload_statement(file: UploadFile = File(...), password: str = Form(""), consent: bool = Form(False),
                            alerts: bool = Form(False), user: User = Depends(current_user),

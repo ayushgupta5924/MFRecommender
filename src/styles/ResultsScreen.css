@@ -107,3 +107,14 @@
   display: inline-block; margin-top: 10px; padding: 6px 12px; border-radius: 16px;
   background: rgba(255,255,255,0.18); color: #fff; font-size: 13px; font-weight: 600;
 }
+
+/* ── Funds already held ── */
+.heldAdvice { padding: 12px 0; border-top: 1px solid #eee; }
+.heldAdvice:first-of-type { border-top: none; padding-top: 0; }
+.heldAdvice__head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+.heldAdvice__name { font-size: 14px; font-weight: 700; color: #222; overflow-wrap: anywhere; }
+.heldAdvice__meta { font-size: 12px; color: #888; margin-top: 2px; }
+.heldAdvice__right { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; flex-shrink: 0; }
+.heldAdvice__value { font-size: 14px; font-weight: 700; color: #222; }
+.heldAdvice__text { font-size: 13px; color: #444; line-height: 1.5; margin-top: 6px; }
+.heldAdvice__notes { margin-top: 12px; }

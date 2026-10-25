@@ -46,7 +46,7 @@ def _parse_date(value: str) -> Optional[date]:
     return None
 
 
-def iter_open_ended(lines: Iterable[str]) -> Iterator[Dict[str, str]]:
+def iter_open_ended(lines: Iterable[str]) -> Iterator[dict]:
     """Every open-ended scheme row, with the category and AMC it was listed under."""
     scheme_type = category = amc = None
     for raw in lines:

@@ -168,6 +168,15 @@ def test_review_api_manual_holdings_and_bad_uploads(monkeypatch):
     assert body["summary"]["value"] == pytest.approx(50_000, rel=1e-6)
     assert body["holdings"][0]["source"] == "manual"
 
+    # The plan questionnaire picks the funds up without running a review.
+    held = client.get("/api/review/holdings").json()
+    assert [h["code"] for h in held] == [hits[0]["code"]] and held[0]["units"] > 0
+    plan = client.post("/api/portfolio", json={
+        "life_stage": "peak_earning", "goal": "wealth_creation", "risk_tolerance": "moderate", "risk_score": 55,
+        "monthly_budget": 10_000, "horizon_years": 10,
+        "existing_holdings": [{"code": h["code"], "units": h["units"]} for h in held]}).json()
+    assert plan["existing"]["funds"][0]["scheme_code"] == hits[0]["code"]
+
     hid = body["holdings"][0]["ids"][0]
     assert client.delete(f"/api/review/holdings/{hid}").json()["empty"]
 

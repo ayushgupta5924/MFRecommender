@@ -38,7 +38,7 @@ COOKIE_NAME = "mfa_session"
 
 EMAIL_RE = re.compile(r"^[^@\s]{1,64}@[^@\s]+\.[A-Za-z]{2,}$")
 
-_SECRET = os.getenv("AUTH_SECRET")
+_SECRET = os.getenv("AUTH_SECRET") or ""
 if not _SECRET:
     # Fine locally; in production codes would stop verifying after every restart.
     logger.warning("AUTH_SECRET is not set; using a random one for this process.")
@@ -105,7 +105,7 @@ def issue_code(db: Session, email: str, purpose: str, ip: str, full_name: Option
         wait = RESEND_COOLDOWN_SECONDS - int((now - last.created_at).total_seconds())
         raise auth_error(429, f"Please wait {wait} seconds before requesting another code.")
     recent = db.scalar(select(func.count()).select_from(OtpCode)
-                       .where(OtpCode.email == email, OtpCode.created_at > now - timedelta(hours=1)))
+                       .where(OtpCode.email == email, OtpCode.created_at > now - timedelta(hours=1))) or 0
     if recent >= MAX_CODES_PER_EMAIL_PER_HOUR:
         raise auth_error(429, "Too many codes requested for this email. Try again in an hour.")
     _check_ip(ip)

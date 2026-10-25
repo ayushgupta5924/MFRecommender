@@ -178,6 +178,38 @@ def cash_flows(txns: List[list]) -> List[Tuple[date, float]]:
 
 # ── Review ──────────────────────────────────────────────────────────────────
 
+def rate_fund(twin: Optional[str], bucket: Optional[str], data: dict) -> dict:
+    """Quartile rating of a Direct-Growth fund within its category's nightly ranking."""
+    if not bucket:
+        return {"status": "not_rated", "reason": "We don't rate this category yet."}
+    funds = data["buckets"].get(bucket, {}).get("funds", [])
+    pos = next((i for i, f in enumerate(funds) if f["code"] == twin), None)
+    if pos is None:
+        years = BUCKETS[bucket].min_years
+        return {"status": "not_rated",
+                "reason": f"Under {years:g} years of history, too new to rate fairly against its category."}
+    n = len(funds)
+    share = pos / (n - 1) if n > 1 else 0.0
+    status = ("in_form" if share < 0.25 else "on_track" if share < 0.5
+              else "off_track" if share < 0.75 else "out_of_form")
+    f = funds[pos]
+    stats = data["buckets"][bucket]["stats"]
+    return {
+        "status": status, "rank": pos + 1, "rank_of": n,
+        "reason": f"Ranked {pos + 1} of {n} {BUCKETS[bucket].label} funds on returns, consistency, falls, "
+                  "costs, fund size and record against its index.",
+        "metrics": {k: f.get(k) for k in ("cagr_1y", "cagr_3y", "cagr_5y", "max_drawdown", "volatility",
+                                          "rolling_median", "years_history", "ter", "aum_cr", "excess_return",
+                                          "beat_rate", "down_capture", "stocks", "top10_pct", "cash_pct",
+                                          "managers", "manager_since", "manager_changed")},
+        "category": {k: stats.get(f"median_{k}") for k in ("cagr_1y", "cagr_3y", "cagr_5y", "max_drawdown",
+                                                              "ter")},
+        "benchmark": data["buckets"][bucket].get("benchmark"),
+        "size_note": size_note(f, bucket, BUCKETS[bucket].sleeve, BUCKETS[bucket].label.lower()),
+        "size_fit": size_fit(f.get("aum_cr"), bucket, BUCKETS[bucket].sleeve),
+    }
+
+
 class Reviewer:
     def __init__(self, rankings: RankingsStore = default_rankings, schemes: SchemeMapStore = default_scheme_map,
                  fetch_histories=None, holdings: HoldingsStore = default_holdings):
@@ -187,34 +219,7 @@ class Reviewer:
         self.fetch_histories = fetch_histories or (lambda codes: navs.histories(codes))
 
     def _rate(self, twin: Optional[str], bucket: Optional[str], data: dict) -> dict:
-        if not bucket:
-            return {"status": "not_rated", "reason": "We don't rate this category yet."}
-        funds = data["buckets"].get(bucket, {}).get("funds", [])
-        pos = next((i for i, f in enumerate(funds) if f["code"] == twin), None)
-        if pos is None:
-            years = BUCKETS[bucket].min_years
-            return {"status": "not_rated",
-                    "reason": f"Under {years:g} years of history, too new to rate fairly against its category."}
-        n = len(funds)
-        share = pos / (n - 1) if n > 1 else 0.0
-        status = ("in_form" if share < 0.25 else "on_track" if share < 0.5
-                  else "off_track" if share < 0.75 else "out_of_form")
-        f = funds[pos]
-        stats = data["buckets"][bucket]["stats"]
-        return {
-            "status": status, "rank": pos + 1, "rank_of": n,
-            "reason": f"Ranked {pos + 1} of {n} {BUCKETS[bucket].label} funds on returns, consistency, falls, "
-                      "costs, fund size and record against its index.",
-            "metrics": {k: f.get(k) for k in ("cagr_1y", "cagr_3y", "cagr_5y", "max_drawdown", "volatility",
-                                              "rolling_median", "years_history", "ter", "aum_cr", "excess_return",
-                                              "beat_rate", "down_capture", "stocks", "top10_pct", "cash_pct",
-                                              "managers", "manager_since", "manager_changed")},
-            "category": {k: stats.get(f"median_{k}") for k in ("cagr_1y", "cagr_3y", "cagr_5y", "max_drawdown",
-                                                                  "ter")},
-            "benchmark": data["buckets"][bucket].get("benchmark"),
-            "size_note": size_note(f, bucket, BUCKETS[bucket].sleeve, BUCKETS[bucket].label.lower()),
-            "size_fit": size_fit(f.get("aum_cr"), bucket, BUCKETS[bucket].sleeve),
-        }
+        return rate_fund(twin, bucket, data)
 
     def _alternatives(self, bucket: str, exclude: str, amc: str, data: dict) -> List[dict]:
         funds = data["buckets"].get(bucket, {}).get("funds", [])
@@ -277,7 +282,7 @@ class Reviewer:
                     st_gain = sum(u * price - c for d, u, c in lots if (today - d).days <= EQUITY_LT_DAYS)
                 if s["bucket"] == "elss":
                     elss_locked = sum(u * price for d, u, _ in lots if (today - d).days < ELSS_LOCK_DAYS)
-                holding_xirr = xirr(cash_flows(m["txns"]) + [(today, value)])
+                holding_xirr = xirr(cash_flows(m["txns"]) + [(today, m["units"] * price)])
 
             cost_gap = None
             if not s["direct"] and s["twin"]:

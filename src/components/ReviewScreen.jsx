@@ -37,7 +37,9 @@ const accountSource = {
 };
 
 function keepGuest(r, statement) {
-  const kept = { holdings: r.holdings, statement: r.statement || statement || null };
+  // `funds` (one row per scheme, valued) is what the plan questionnaire offers to use.
+  const funds = r.review.holdings.map(({ code, name, units, value }) => ({ code, name, units, value }));
+  const kept = { holdings: r.holdings, funds, statement: r.statement || statement || null };
   saveSession(GUEST_REVIEW_KEY, kept);
   return { ...r.review, statement: kept.statement, parse_warnings: r.parse_warnings };
 }

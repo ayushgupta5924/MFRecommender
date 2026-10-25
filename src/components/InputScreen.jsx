@@ -1,13 +1,16 @@
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { getPortfolio } from "../api";
+import { useEffect, useMemo, useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import { getHeldFunds, getPortfolio, searchFunds } from "../api";
+import { useAuth } from "../auth";
 import {
   CAPACITY_QUESTIONS, INSURANCE_QUESTIONS, WILLINGNESS_QUESTIONS,
   scoreCapacity, scoreRisk, scoreWillingness,
 } from "../constants/riskQuestions";
 import { fmt, requiredSip, sipFutureValue } from "../utils/format";
 import { profileChecks } from "../utils/profileChecks";
-import { LAST_PLAN_KEY, clearPlanData, save, usePersistentState } from "../utils/storage";
+import {
+  GUEST_REVIEW_KEY, LAST_PLAN_KEY, clearPlanData, loadSession, save, usePersistentState,
+} from "../utils/storage";
 import AppBar from "./AppBar";
 import "../styles/InputScreen.css";
 import "../styles/shared.css";
@@ -98,6 +101,147 @@ function ReviewSection({ title, step, onEdit, rows }) {
   );
 }
 
+// ── Funds already held ──────────────────────────────────────────────────────
+// Taken from the portfolio review when there is one (this tab for a guest, the account when logged in);
+// otherwise the investor is asked here.
+
+function guestReviewFunds() {
+  const saved = loadSession(GUEST_REVIEW_KEY, null);
+  if (saved?.funds?.length) return saved.funds;
+  return (saved?.holdings || []).filter((h) => h.code).map(({ code, name, units }) => ({ code, name, units }));
+}
+
+// null while we look, then a list (empty when there is no review).
+function useReviewedFunds() {
+  const { user } = useAuth();
+  const [account, setAccount] = useState(null);
+  const guest = useMemo(() => (user === null ? guestReviewFunds() : null), [user]);
+  useEffect(() => {
+    if (!user) return undefined;
+    let live = true;
+    getHeldFunds().then((f) => live && setAccount(f)).catch(() => live && setAccount([]));
+    return () => { live = false; };
+  }, [user]);
+  return user ? account : guest;
+}
+
+function FundSearch({ onAdd, hasSome }) {
+  const [q, setQ] = useState("");
+  const [hits, setHits] = useState([]);
+  const [fund, setFund] = useState(null);
+  const [value, setValue] = useState("");
+
+  useEffect(() => {
+    if (fund || q.trim().length < 3) return undefined;
+    let live = true;
+    const t = setTimeout(() => {
+      searchFunds(q.trim()).then((r) => live && setHits(r)).catch(() => live && setHits([]));
+    }, 300);
+    return () => { live = false; clearTimeout(t); };
+  }, [q, fund]);
+
+  const add = () => {
+    onAdd({ code: fund.code, name: fund.name, value: Number(value) });
+    setFund(null); setQ(""); setValue(""); setHits([]);
+  };
+
+  if (fund) {
+    return (
+      <div>
+        <div className="pickedFund">
+          <div>
+            <div className="fundHit__name">{fund.name}</div>
+            <div className="fundHit__meta">{fund.plan} · {fund.option} · {fund.amc}</div>
+          </div>
+          <button type="button" className="linkBtn" onClick={() => setFund(null)}>Change</button>
+        </div>
+        <NumberField id="heldValue" label="Its current value" value={value} onChange={setValue} placeholder="e.g. 150000"
+          hint="From your fund app or latest statement." />
+        <button type="button" className="btnOutline" disabled={!(Number(value) > 0)} onClick={add}>Add this fund</button>
+      </div>
+    );
+  }
+  return (
+    <div className="fieldWrap">
+      <label className="fieldLabel" htmlFor="heldQ">{hasSome ? "Add another fund" : "Search for a fund you hold"}</label>
+      <input id="heldQ" className="fieldInput plainInput" value={q} onChange={(e) => setQ(e.target.value)}
+        placeholder="e.g. Parag Parikh Flexi Cap" autoComplete="off" />
+      {q.trim().length >= 3 && (
+        <div className="fundHits" style={{ marginTop: 8 }}>
+          {hits.length === 0 && <div className="mutedText">No matching funds yet. Try fewer words.</div>}
+          {hits.map((h) => (
+            <button type="button" key={h.code} className="fundHit" onClick={() => setFund(h)}>
+              <span className="fundHit__name">{h.name}</span>
+              <span className="fundHit__meta">{h.plan} · {h.option} · {h.amc}</span>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function HeldFunds({ reviewed, hasFunds, setHasFunds, manual, setManual, count, setCount }) {
+  const fromReview = reviewed?.length > 0;
+  const shown = fromReview ? reviewed : manual;
+  const n = reviewed?.length;
+  return (
+    <div className="card">
+      <div className="card__title">📂 Funds you already hold</div>
+      {reviewed === null ? <div className="fieldHint">Checking for funds from your portfolio review…</div> : (
+        <>
+          <div className="fieldLabel">
+            {fromReview ? `We found ${n} fund${n !== 1 ? "s" : ""} from your portfolio review. Use them in this plan?`
+              : "Do you already hold any mutual funds?"}
+          </div>
+          <Choice value={hasFunds} onChange={setHasFunds}
+            options={fromReview ? [[true, "Yes, use them"], [false, "No, leave them out"]] : [[true, "Yes"], [false, "No"]]} />
+
+          {hasFunds && shown.length > 0 && (
+            <ul className="heldList">
+              {shown.map((f) => (
+                <li key={f.code}>
+                  <span>{f.name}</span>
+                  <span>
+                    {f.value ? fmt(f.value) : `${Math.round(f.units * 100) / 100} units`}
+                    {!fromReview && (
+                      <button type="button" className="linkBtn" aria-label={`Remove ${f.name}`}
+                        onClick={() => setManual(manual.filter((m) => m.code !== f.code))}>Remove</button>
+                    )}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+          {hasFunds && !fromReview && (
+            <>
+              <FundSearch hasSome={manual.length > 0}
+                onAdd={(f) => setManual([...manual.filter((m) => m.code !== f.code), f])} />
+              <div className="fieldHint">
+                Have your CAS statement? <Link to="/review">Upload it on the review page</Link> and come back: we'll use
+                every fund in it here.
+              </div>
+            </>
+          )}
+          {hasFunds && shown.length > 0 && (
+            <div className="fieldWrap" style={{ marginTop: 14, marginBottom: 0 }}>
+              <div className="fieldLabel">Should they count towards this goal?</div>
+              <Choice value={count} onChange={setCount}
+                options={[[true, "Yes, count them"], [false, "No, they're for something else"]]} />
+            </div>
+          )}
+          {hasFunds != null && (
+            <div className="fieldHint">
+              {hasFunds ? "With your plan you'll see each fund's rating and whether to keep it, watch it or move new SIPs elsewhere."
+                : fromReview ? "The plan won't look at them." : "The plan starts from scratch."}
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
 // Answers are kept in this browser so a refresh doesn't lose them.
 const K = (name) => `mfa:plan:${name}`;
 
@@ -121,6 +265,10 @@ export default function InputScreen() {
   const [targetAmount, setTarget]   = usePersistentState(K("target"), "");
   const [targetToday, setTargetToday] = usePersistentState(K("targetToday"), true);
   const [taxRegime, setTaxRegime]   = usePersistentState(K("taxRegime"), "old");
+  const [hasFunds, setHasFunds]     = usePersistentState(K("hasFunds"), null);
+  const [manualFunds, setManualFunds] = usePersistentState(K("heldFunds"), []);
+  const [countHeld, setCountHeld]   = usePersistentState(K("countHeld"), true);
+  const reviewed                    = useReviewedFunds();
   const [consent, setConsent]       = useState(false);
   const [loading, setLoading]       = useState(false);
   const [error, setError]           = useState("");
@@ -151,10 +299,14 @@ export default function InputScreen() {
   const budgetValue = num(budget) || 0;
   const lumpValue = num(lump) || 0;
   const lumpFv = lumpValue && horizon ? lumpValue * (1 + rate) ** horizon : 0;
-  // SIP still needed after the one-time amount has grown; 0 when the one-time amount alone is enough.
-  const remaining = targetFuture ? targetFuture - lumpFv : null;
+  const heldFunds = hasFunds ? (reviewed?.length ? reviewed : manualFunds) : [];
+  // Funds known only by units are valued by the plan itself; the preview uses the values we have.
+  const heldValue = heldFunds.reduce((s, f) => s + (f.value || 0), 0);
+  const heldFv = countHeld && heldValue && horizon ? heldValue * (1 + rate) ** horizon : 0;
+  // SIP still needed after the money already there has grown; 0 when that alone is enough.
+  const remaining = targetFuture ? targetFuture - lumpFv - heldFv : null;
   const sipNeeded = remaining == null ? null : remaining > 0 ? Math.ceil(requiredSip(remaining, horizon, rate) / 100) * 100 : 0;
-  const fvOfBudget = horizon ? (budgetValue ? sipFutureValue(budgetValue, horizon, rate) : 0) + lumpFv : null;
+  const fvOfBudget = horizon ? (budgetValue ? sipFutureValue(budgetValue, horizon, rate) : 0) + lumpFv + heldFv : null;
   // With a one-time amount and no SIP entered, the plan is one-time only (as on the backend).
   const sip = budgetValue >= 500 ? budgetValue : lumpValue ? 0 : sipNeeded || 0;
 
@@ -165,7 +317,7 @@ export default function InputScreen() {
     2: !!goal && horizonValid && childAgeValid && (!DATED_GOALS.includes(goal) || fixedDeadline != null),
     3: incomeValue != null && expenses !== "" && capacity != null && INSURANCE_QUESTIONS.every((q) => insurance[q.id] != null),
     4: willingness != null,
-    5: amountValid,
+    5: amountValid && reviewed !== null && hasFunds != null && (!hasFunds || heldFunds.length > 0),
     6: consent,
   };
 
@@ -203,6 +355,9 @@ export default function InputScreen() {
         emergency_months:      pick("emergency"),
         has_health_insurance:  insurance.health,
         has_term_insurance:    insurance.term,
+        // Units when we have them (valued at today's NAV), otherwise the value the investor entered.
+        existing_holdings:     heldFunds.map(({ code, units, value }) => (units ? { code, units } : { code, value })),
+        count_existing:        countHeld,
       };
       const data = await getPortfolio(payload);
       save(LAST_PLAN_KEY, { payload, results: data, savedId: null });
@@ -371,6 +526,9 @@ export default function InputScreen() {
               Over {horizon} year{horizon !== 1 ? "s" : ""}. Enter a monthly amount, a target, or both.
             </div>
 
+            <HeldFunds reviewed={reviewed} hasFunds={hasFunds} setHasFunds={setHasFunds} manual={manualFunds}
+              setManual={setManualFunds} count={countHeld} setCount={setCountHeld} />
+
             <div className="card">
               <div className="card__title">🎯 Do you have a target amount in mind?</div>
               <NumberField id="target" label="Target amount" value={targetAmount} onChange={setTarget}
@@ -385,13 +543,17 @@ export default function InputScreen() {
                   )}
                 </div>
               )}
-              {sipNeeded === 0 && lumpValue > 0 && (
-                <div className="fieldHint">Your one-time amount alone should be enough for this target.</div>
+              {sipNeeded === 0 && (lumpValue > 0 || heldFv > 0) && (
+                <div className="fieldHint">
+                  {heldFv > 0 ? "The funds you already hold" : "Your one-time amount"}{lumpValue > 0 && heldFv > 0 && " and your one-time amount"}
+                  {" "}should be enough for this target. Enter a monthly or one-time amount if you want to invest more.
+                </div>
               )}
               {sipNeeded > 0 && (
                 <div className="sipResult">
                   <div className="sipResult__label">
-                    Approximate monthly SIP needed{lumpValue > 0 ? " on top of your one-time amount" : ""}
+                    Approximate monthly SIP needed
+                    {heldFv > 0 ? " on top of the funds you hold" : lumpValue > 0 ? " on top of your one-time amount" : ""}
                   </div>
                   <div className="sipResult__amount">{fmt(sipNeeded)}<span className="sipResult__month">/month</span></div>
                 </div>
@@ -484,6 +646,9 @@ export default function InputScreen() {
               lumpValue > 0 && ["One-time amount", fmt(lumpValue)],
               targetValue > 0 && ["Target", targetToday ? `${fmt(targetValue)} today ≈ ${fmt(targetFuture)} then` : fmt(targetValue)],
               goal === "tax_saving" && ["Tax regime", taxRegime === "old" ? "Old" : "New"],
+              ["Funds you hold", heldFunds.length
+                ? `${heldFunds.length} fund${heldFunds.length !== 1 ? "s" : ""}${heldValue ? ` · ${fmt(heldValue)}` : ""} · ${countHeld ? "counted" : "not counted"}`
+                : "None"],
             ]} />
 
             <label className="consentRow">

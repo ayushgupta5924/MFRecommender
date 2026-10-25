@@ -35,6 +35,13 @@ class TaxRegime(str, Enum):
     NEW = "new"
 
 
+class ExistingHolding(BaseModel):
+    """A fund the investor already holds: its AMFI code and either units or today's value."""
+    code:  str             = Field(..., min_length=1, max_length=12)
+    units: Optional[float] = Field(None, gt=0, le=1e10)
+    value: Optional[float] = Field(None, gt=0, le=1e11)
+
+
 class UserProfile(BaseModel):
     # Core inputs
     life_stage:         LifeStage
@@ -65,6 +72,10 @@ class UserProfile(BaseModel):
     emergency_months:   Optional[float] = Field(None, ge=0, le=120)
     has_health_insurance: Optional[bool] = None
     has_term_insurance:   Optional[bool] = None
+
+    # Funds already held: rated and advised on alongside the plan, and (if counted) part of the goal.
+    existing_holdings:  List[ExistingHolding] = Field(default_factory=list, max_length=150)
+    count_existing:     bool = True          # False when the investor keeps them for something else
 
     # Legacy support
     budget:             Optional[float] = None
@@ -140,6 +151,31 @@ class FundRecommendation(BaseModel):
     lock_in_years:        int = 0
     lump_sum_amount:      float = 0             # this fund's share of the one-time amount
     alternatives:         List[FundAlternative] = []
+    rating_status:        Optional[str] = None      # quartile in its whole category, as the portfolio review rates it
+    rating_label:         Optional[str] = None      # "In form", "On track", ...
+    already_held:         bool = False              # the investor holds this fund (any plan or option) already
+
+
+class ExistingFundAdvice(BaseModel):
+    scheme_code:    str
+    scheme_name:    str
+    category:       str
+    plan:           str                         # "Direct" | "Regular"
+    value:          Optional[float] = None
+    rating_status:  str
+    rating_label:   str
+    action:         str                         # keep | watch | switch | move | review
+    advice:         str
+    switch_to:      Optional[str] = None        # the plan's fund for this category, when we suggest moving SIPs there
+
+
+class ExistingPortfolio(BaseModel):
+    value:      float                           # today's value of the funds we could price
+    counted:    bool                            # whether it counts towards this goal
+    asset_mix:  Dict[str, float] = {}
+    funds:      List[ExistingFundAdvice] = []
+    notes:      List[str] = []
+    unpriced:   List[str] = []                  # funds we couldn't value or recognise
 
 
 class Projection(BaseModel):
@@ -178,6 +214,7 @@ class PortfolioRecommendation(BaseModel):
     target_amount_today:   Optional[float] = None   # the target as entered, when given in today's rupees
     goal_status:           Optional[str] = None     # "on_track" | "shortfall"
     shortfall_monthly:     Optional[float] = None
+    existing:              Optional[ExistingPortfolio] = None   # advice on the funds already held
     risk_profile:          Optional[RiskProfile] = None
     inflation_assumption:  float = 6.0
     warnings:              List[str] = []

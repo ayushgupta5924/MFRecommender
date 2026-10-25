@@ -60,6 +60,8 @@ export const setAlerts = (enabled) => request("/api/account/alerts", { method: "
 
 // ── Portfolio review ──
 export const getReview = () => request("/api/review");
+// Just the funds and units, for using them in a new plan (no review is run).
+export const getHeldFunds = () => request("/api/review/holdings");
 export const deleteReview = () => request("/api/review", { method: "DELETE" });
 export const removeHolding = (id) => request(`/api/review/holdings/${encodeURIComponent(id)}`, { method: "DELETE" });
 export const addHolding = (holding) => request("/api/review/holdings", { json: holding });

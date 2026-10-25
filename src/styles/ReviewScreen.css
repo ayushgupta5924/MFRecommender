@@ -9,18 +9,8 @@
 .casSteps li { margin-bottom: 6px; }
 .casSteps a { color: #1976d2; font-weight: 600; }
 .fileInput { font: inherit; font-size: 14px; width: 100%; padding: 10px; border: 1.5px dashed #bbb; border-radius: 12px; background: #fafafa; }
-.plainInput { padding-left: 14px; }
 .privacyNote { margin-top: 14px; }
 .cancelImport { display: block; margin: 14px auto 0; }
-.fundHits { display: flex; flex-direction: column; gap: 6px; margin-bottom: 12px; max-height: 320px; overflow-y: auto; }
-.fundHit {
-  font: inherit; text-align: left; background: #fafafa; border: 1.5px solid #e0e0e0; border-radius: 10px;
-  padding: 10px 12px; cursor: pointer; display: flex; flex-direction: column; gap: 2px;
-}
-.fundHit:hover { border-color: #1976d2; background: #f0f7ff; }
-.fundHit__name { font-size: 14px; font-weight: 600; color: #222; }
-.fundHit__meta { font-size: 12px; color: #888; }
-.pickedFund { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; padding: 12px; background: #f0f7ff; border-radius: 10px; margin-bottom: 14px; }
 
 /* ── Summary ── */
 .reviewHero {
@@ -39,12 +29,6 @@
 .healthLine { font-size: 14px; color: #444; line-height: 1.5; margin-bottom: 12px; }
 .healthLine__pct { font-size: 26px; font-weight: 800; color: #2e7d32; margin-right: 6px; }
 .statusChips { display: flex; flex-wrap: wrap; gap: 6px; }
-.statusChip { font-size: 12px; font-weight: 700; padding: 4px 10px; border-radius: 12px; white-space: nowrap; }
-.statusChip--in_form { background: #e8f5e9; color: #2e7d32; }
-.statusChip--on_track { background: #e3f2fd; color: #1565c0; }
-.statusChip--off_track { background: #fff3e0; color: #e65100; }
-.statusChip--out_of_form { background: #ffebee; color: #c62828; }
-.statusChip--not_rated { background: #f0f0f0; color: #666; }
 .targetLine { font-size: 13px; color: #555; margin-top: 12px; line-height: 1.5; }
 .targetLine a { color: #1976d2; font-weight: 600; }
 

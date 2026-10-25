@@ -68,6 +68,7 @@ class RankingsStore:
             if self.url and stale and not self._refreshing:
                 self._refreshing = True
                 threading.Thread(target=self._refresh_remote, daemon=True).start()
+            assert self._data is not None
             return self._data
 
 
