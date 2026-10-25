@@ -25,7 +25,7 @@
 .stageCard--selected, .goalCard--selected {
   border-color: var(--accent); background: var(--accent-soft); box-shadow: 0 0 0 1px var(--accent) inset;
 }
-.stageCard__emoji, .goalCard__emoji { font-size: 28px; margin-bottom: 10px; }
+
 .stageCard__label, .goalCard__label { font-size: 14px; font-weight: 700; color: var(--text); }
 .stageCard__desc, .goalCard__desc { font-size: 12px; color: var(--text-3); margin-top: 4px; line-height: 1.4; }
 
@@ -114,3 +114,8 @@
 }
 .heldList li > span:first-child { min-width: 0; overflow-wrap: anywhere; }
 .heldList li > span:last-child { white-space: nowrap; color: var(--text-2); font-weight: 600; display: flex; gap: 10px; align-items: center; }
+.stageCard__emoji, .goalCard__emoji {
+  width: 48px; height: 48px; margin: 0 auto 12px; border-radius: 14px; display: flex; align-items: center;
+  justify-content: center; color: var(--accent-text); background: var(--accent-soft); border: 1px solid var(--accent-line);
+}
+.stageCard--selected .stageCard__emoji, .goalCard--selected .goalCard__emoji { background: var(--accent); color: var(--accent-ink); }

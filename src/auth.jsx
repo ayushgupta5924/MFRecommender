@@ -1,4 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useState } from "react";
+import { Wrench } from "lucide-react";
 import { Link, Navigate, useLocation } from "react-router-dom";
 import { getHealth, getMe, logout as apiLogout } from "./api";
 import { clearPlanData } from "./utils/storage";
@@ -39,7 +40,7 @@ export function ComingSoon() {
   return (
     <div className="page">
       <div className="body comingSoon">
-        <div className="comingSoon__icon">🛠️</div>
+        <div className="comingSoon__icon"><Wrench size={44} strokeWidth={1.5} /></div>
         <div className="stepTitle">Accounts and portfolio review are coming soon</div>
         <div className="stepSubtitle">Meanwhile you can build a plan without an account.</div>
         <Link className="btnBlue" to="/plan">Build my plan →</Link>

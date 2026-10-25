@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { Baby, Briefcase, Cake, CalendarDays, FolderOpen, GraduationCap, Heart, House, ReceiptText, ShieldCheck, Sparkles, Sunset, Target, TreePalm, TrendingUp, TriangleAlert, Wallet, Zap } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { getHeldFunds, getPortfolio, searchFunds } from "../api";
 import { useAuth } from "../auth";
@@ -16,23 +17,23 @@ import "../styles/InputScreen.css";
 import "../styles/shared.css";
 
 const LIFE_STAGES = [
-  { value: "just_started",     emoji: "🎓", label: "Just started working",    desc: "First job, building habits" },
-  { value: "recently_married", emoji: "💍", label: "Recently married",         desc: "Building a life together" },
-  { value: "new_parent",       emoji: "👶", label: "New parent",               desc: "Planning for the family" },
-  { value: "home_buyer",       emoji: "🏠", label: "Planning home purchase",   desc: "Saving for down payment" },
-  { value: "peak_earning",     emoji: "📈", label: "Peak earning years",       desc: "Maximising wealth creation" },
-  { value: "near_retirement",  emoji: "🎯", label: "5 years from retirement",  desc: "Protecting what I built" },
-  { value: "retired",          emoji: "🧓", label: "Retired",                  desc: "Income & capital safety" },
+  { value: "just_started",     icon: GraduationCap, label: "Just started working",    desc: "First job, building habits" },
+  { value: "recently_married", icon: Heart, label: "Recently married",         desc: "Building a life together" },
+  { value: "new_parent",       icon: Baby, label: "New parent",               desc: "Planning for the family" },
+  { value: "home_buyer",       icon: House, label: "Planning home purchase",   desc: "Saving for down payment" },
+  { value: "peak_earning",     icon: TrendingUp, label: "Peak earning years",       desc: "Maximising wealth creation" },
+  { value: "near_retirement",  icon: Target, label: "5 years from retirement",  desc: "Protecting what I built" },
+  { value: "retired",          icon: Sunset, label: "Retired",                  desc: "Income & capital safety" },
 ];
 
 const GOALS = [
-  { value: "financial_freedom", emoji: "🏖️", label: "Financial Freedom",   desc: "Achieve financial independence", years: 15 },
-  { value: "buy_home",          emoji: "🏠", label: "Buy a Home",           desc: "Save for down payment",          years: 5 },
-  { value: "child_education",   emoji: "🎓", label: "Child's Education",    desc: "Build education corpus",         years: 12 },
-  { value: "retirement",        emoji: "💼", label: "Retirement Corpus",    desc: "Long-term retirement fund",      years: 20 },
-  { value: "tax_saving",        emoji: "🛡️", label: "Tax Saving",           desc: "Save tax under Section 80C",     years: 5 },
-  { value: "emergency_corpus",  emoji: "⚡", label: "Emergency Corpus",     desc: "3–6 months safety net",          years: 1 },
-  { value: "wealth_creation",   emoji: "📈", label: "Wealth Creation",      desc: "Grow money over the long term",  years: 10 },
+  { value: "financial_freedom", icon: TreePalm, label: "Financial Freedom",   desc: "Achieve financial independence", years: 15 },
+  { value: "buy_home",          icon: House, label: "Buy a Home",           desc: "Save for down payment",          years: 5 },
+  { value: "child_education",   icon: GraduationCap, label: "Child's Education",    desc: "Build education corpus",         years: 12 },
+  { value: "retirement",        icon: Briefcase, label: "Retirement Corpus",    desc: "Long-term retirement fund",      years: 20 },
+  { value: "tax_saving",        icon: ShieldCheck, label: "Tax Saving",           desc: "Save tax under Section 80C",     years: 5 },
+  { value: "emergency_corpus",  icon: Zap, label: "Emergency Corpus",     desc: "3–6 months safety net",          years: 1 },
+  { value: "wealth_creation",   icon: TrendingUp, label: "Wealth Creation",      desc: "Grow money over the long term",  years: 10 },
 ];
 
 // Goals with a real date attached, where it matters whether the date can move.
@@ -187,7 +188,7 @@ function HeldFunds({ reviewed, hasFunds, setHasFunds, manual, setManual, count, 
   const n = reviewed?.length;
   return (
     <div className="card">
-      <div className="card__title">📂 Funds you already hold</div>
+      <div className="card__title"><FolderOpen size={18} /> Funds you already hold</div>
       {reviewed === null ? <div className="fieldHint">Checking for funds from your portfolio review…</div> : (
         <>
           <div className="fieldLabel">
@@ -392,7 +393,7 @@ export default function InputScreen() {
             <div className="stepTitle">About you</div>
             <div className="stepSubtitle">Your age and stage of life shape how long your money can stay invested</div>
             <div className="card">
-              <NumberField id="age" label="Your age" icon="🎂" value={age} onChange={setAge} min={18} max={100}
+              <NumberField id="age" label="Your age" icon={<Cake size={16} />} value={age} onChange={setAge} min={18} max={100}
                 placeholder="e.g. 32" error={age && !ageValid ? "Enter an age between 18 and 100." : null} />
             </div>
             <div className="stageGrid">
@@ -400,7 +401,7 @@ export default function InputScreen() {
                 <button type="button" key={s.value}
                   onClick={() => setLifeStage(s.value)}
                   className={`stageCard ${lifeStage === s.value ? "stageCard--selected" : ""}`}>
-                  <div className="stageCard__emoji">{s.emoji}</div>
+                  <div className="stageCard__emoji"><s.icon size={26} strokeWidth={1.75} /></div>
                   <div className="stageCard__label">{s.label}</div>
                   <div className="stageCard__desc">{s.desc}</div>
                 </button>
@@ -419,7 +420,7 @@ export default function InputScreen() {
                 <button type="button" key={g.value}
                   onClick={() => chooseGoal(g)}
                   className={`goalCard ${goal === g.value ? "goalCard--selected" : ""}`}>
-                  <div className="goalCard__emoji">{g.emoji}</div>
+                  <div className="goalCard__emoji"><g.icon size={26} strokeWidth={1.75} /></div>
                   <div className="goalCard__label">{g.label}</div>
                   <div className="goalCard__desc">{g.desc}</div>
                 </button>
@@ -428,25 +429,25 @@ export default function InputScreen() {
 
             {goal && (
               <div className="card">
-                <div className="card__title">{goalInfo.emoji} About this goal</div>
+                <div className="card__title"><goalInfo.icon size={18} /> About this goal</div>
 
                 {goal === "emergency_corpus" && (
                   <div className="fieldHint">Emergency money must be available any day, so it stays in liquid and money market funds.</div>
                 )}
                 {goal === "child_education" && (
-                  <NumberField id="childAge" label="Your child's age today" icon="👶" value={childAge} onChange={setChildAge}
+                  <NumberField id="childAge" label="Your child's age today" icon={<Baby size={16} />} value={childAge} onChange={setChildAge}
                     min={0} max={17} placeholder="e.g. 4"
                     error={childAge !== "" && !childAgeValid ? `Enter an age under ${COLLEGE_AGE}.` : null}
                     hint={childAgeValid && childAge !== "" ? `College is about ${horizon} year${horizon !== 1 ? "s" : ""} away.` : null} />
                 )}
                 {goal === "retirement" && (
-                  <NumberField id="retireAge" label="Age you want to retire at" icon="🧓" value={retireAge} onChange={setRetireAge}
+                  <NumberField id="retireAge" label="Age you want to retire at" icon={<Sunset size={16} />} value={retireAge} onChange={setRetireAge}
                     min={30} max={80} placeholder="e.g. 60"
                     error={retireAge && !horizonValid ? `Enter an age between ${ageValue + 1} and ${ageValue + 40}.` : null}
                     hint={horizonValid ? `That's ${horizon} years from now.` : null} />
                 )}
                 {!["emergency_corpus", "child_education", "retirement"].includes(goal) && (
-                  <NumberField id="years" label={YEARS_LABEL[goal] || "How many years will you invest for?"} icon="📅"
+                  <NumberField id="years" label={YEARS_LABEL[goal] || "How many years will you invest for?"} icon={<CalendarDays size={16} />}
                     value={years} onChange={setYears} min={1} max={40} placeholder={`e.g. ${goalInfo.years}`}
                     error={years && !horizonValid ? "Enter between 1 and 40 years." : null} />
                 )}
@@ -530,7 +531,7 @@ export default function InputScreen() {
               setManual={setManualFunds} count={countHeld} setCount={setCountHeld} />
 
             <div className="card">
-              <div className="card__title">🎯 Do you have a target amount in mind?</div>
+              <div className="card__title"><Target size={18} /> Do you have a target amount in mind?</div>
               <NumberField id="target" label="Target amount" value={targetAmount} onChange={setTarget}
                 placeholder="e.g. 2500000 (25 lakhs)" />
               {targetValue > 0 && (
@@ -561,7 +562,7 @@ export default function InputScreen() {
             </div>
 
             <div className="card">
-              <div className="card__title">💰 How much will you invest?</div>
+              <div className="card__title"><Wallet size={18} /> How much will you invest?</div>
               <NumberField id="budget" label="Monthly SIP" value={budget} onChange={setBudget}
                 placeholder={sipNeeded ? `e.g. ${sipNeeded}` : "e.g. 10000"}
                 error={budget && budgetValue < 500 ? "The minimum SIP is ₹500." : null}
@@ -592,7 +593,7 @@ export default function InputScreen() {
 
             {goal === "tax_saving" && (
               <div className="card">
-                <div className="card__title">🧾 Which tax regime do you file under?</div>
+                <div className="card__title"><ReceiptText size={18} /> Which tax regime do you file under?</div>
                 <Choice value={taxRegime} onChange={setTaxRegime}
                   options={[["old", "Old regime (80C deductions)"], ["new", "New regime"]]} />
                 {taxRegime === "new" && <div className="fieldHint">ELSS gives no deduction under the new regime, so we'll use regular equity funds.</div>}
@@ -612,7 +613,7 @@ export default function InputScreen() {
                 <div className="warningBox__title">Worth a second look</div>
                 {checks.map((c) => (
                   <div key={c.text} className="warningBox__item">
-                    ⚠️ {c.text} <button type="button" className="linkBtn" onClick={() => setStep(c.step)}>Change</button>
+                    <TriangleAlert size={14} className="ico" /> {c.text} <button type="button" className="linkBtn" onClick={() => setStep(c.step)}>Change</button>
                   </div>
                 ))}
               </div>
@@ -668,7 +669,7 @@ export default function InputScreen() {
             </button>
           ) : (
             <button className="btnBlue" onClick={handleSubmit} disabled={loading || !canProceed[STEPS]}>
-              {loading ? "Building your portfolio…" : "✨ Get My Portfolio"}
+              {loading ? "Building your portfolio…" : <><Sparkles size={18} /> Get my plan</>}
             </button>
           )}
           {loading && <div className="fieldHint" style={{ textAlign: "center" }}>If the server has been idle it can take up to a minute to wake up.</div>}

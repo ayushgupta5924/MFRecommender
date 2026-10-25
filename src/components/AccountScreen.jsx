@@ -1,11 +1,12 @@
 import { useEffect, useState } from "react";
+import { ChartColumn } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { deleteAccount, deletePlan, getPlan, listPlans, setAlerts } from "../api";
 import { useAuth } from "../auth";
 import "../styles/AccountScreen.css";
 import "../styles/ResultsScreen.css";
 import "../styles/shared.css";
-import { fmt, fmtDate } from "../utils/format";
+import { fmt, fmtDate, planTitle } from "../utils/format";
 import { LAST_PLAN_KEY, clearPlanData, save } from "../utils/storage";
 import AppBar from "./AppBar";
 
@@ -82,7 +83,7 @@ export default function AccountScreen() {
         </div>
 
         <Link className="card accountLink" to="/review">
-          <span>📊 Portfolio review</span><span className="accountLink__arrow">→</span>
+          <span className="accountLink__label"><ChartColumn size={18} /> Portfolio review</span><span className="accountLink__arrow">→</span>
         </Link>
 
         <label className="card alertToggle">
@@ -104,7 +105,7 @@ export default function AccountScreen() {
         {plans?.map((p) => (
           <div key={p.id} className="card planRow">
             <button className="planRow__main" onClick={() => open(p.id)}>
-              <div className="planRow__name">{p.name}</div>
+              <div className="planRow__name">{planTitle(p.name)}</div>
               <div className="mutedText">
                 {GOAL_LABEL[p.goal] || p.goal} · {fmt(p.monthly_investment)}/month · {p.horizon_years} yrs
                 {p.risk_label && ` · ${p.risk_label}`}

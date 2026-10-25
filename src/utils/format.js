@@ -27,3 +27,8 @@ export function requiredSip(target, years, annualRate) {
   const unit = sipFutureValue(1, years, annualRate);
   return unit > 0 ? target / unit : 0;
 }
+
+// Plan names from the API start with an emoji ("📈 Peak Performer"); the app shows icons instead.
+export function planTitle(name) {
+  return (name || "").replace(/^[^\p{L}\p{N}]+/u, "");
+}

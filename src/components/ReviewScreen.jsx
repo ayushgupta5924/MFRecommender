@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
+import { Banknote, CircleCheck, FileText, IdCard, Info, Lock, OctagonAlert, PenLine, RefreshCw, Smartphone, TriangleAlert } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../auth";
 import { COMPLIANCE } from "../constants/compliance";
+import { STATUS_LABEL } from "../constants/ratings";
 import {
   aaStatus, addHolding, deleteReview, getReview, guestReview, guestUpload, panStatus, removeHolding, searchFunds,
   startAaFetch, startPanFetch, uploadStatement,
@@ -19,12 +21,16 @@ const CAS_URL = "https://www.camsonline.com/Investors/Statements/Consolidated-Ac
 const SLEEVES = [["equity", "Equity", "var(--mix-equity)"], ["hybrid", "Hybrid", "var(--mix-hybrid)"], ["debt", "Debt", "var(--mix-debt)"],
   ["other", "Gold & other", "var(--mix-other)"]];
 const STATUS_ORDER = ["in_form", "on_track", "off_track", "out_of_form", "not_rated"];
-const STATUS_LABEL = { in_form: "Top 25%", on_track: "Above average", off_track: "Below average", out_of_form: "Bottom 25%", not_rated: "Not rated" };
-const LEVEL_ICON = { high: "🔴", medium: "🟠", low: "🔵", good: "✅" };
+const LEVEL_ICON = { high: OctagonAlert, medium: TriangleAlert, low: Info, good: CircleCheck };
 const AA_POLL_MS = 3000;
 const AA_WAIT_MS = 3 * 60 * 1000;     // registrars usually answer within a minute
 const PAN_POLL_MS = 3000;
 const PAN_WAIT_MS = 3 * 60 * 1000;    // MF Central usually sends the holdings within a minute of the OTP
+
+function InsightIcon({ level }) {
+  const Icon = LEVEL_ICON[level] || Info;
+  return <Icon size={16} className={`insight__icon insight__icon--${level}`} />;
+}
 
 // Fractions from the API (0.123) to "12.3%".
 const pctF = (v, digits = 1) => (v == null ? "—" : `${v < 0 ? "−" : ""}${Math.abs(v * 100).toFixed(digits)}%`);
@@ -169,7 +175,7 @@ function UploadStatement({ source, onDone }) {
       </button>
       {error && <div className="errorText">{error}</div>}
       <div className="mutedText privacyNote">
-        🔒 We read the funds, units and transactions, then discard the file. Your PAN, address, phone and the PDF
+        <Lock size={13} className="ico" /> We read the funds, units and transactions, then discard the file. Your PAN, address, phone and the PDF
         itself are never stored.{" "}
         {source.guest
           ? "Without an account your holdings stay in this browser tab and are gone when you close it."
@@ -223,7 +229,7 @@ function FetchByMobile({ source }) {
       </button>
       {error && <div className="errorText">{error}</div>}
       <div className="mutedText privacyNote">
-        🔒 Read-only: nobody can buy, sell or move money with this consent. We never see your PAN, don't keep your
+        <Lock size={13} className="ico" /> Read-only: nobody can buy, sell or move money with this consent. We never see your PAN, don't keep your
         mobile number, and ask only for your funds and their transactions.{" "}
         {source.guest
           ? "Without an account your holdings stay in this browser tab and are gone when you close it."
@@ -323,7 +329,7 @@ function FetchByPan({ source, onDone }) {
       </button>
       {error && <div className="errorText">{error}</div>}
       <div className="mutedText privacyNote">
-        🔒 Read-only: this can't buy, sell or move anything. Your PAN and contact are sent to MF Central (through our
+        <Lock size={13} className="ico" /> Read-only: this can't buy, sell or move anything. Your PAN and contact are sent to MF Central (through our
         technology partner smallcase) only to find your funds; we don't keep them, or your name, address or bank
         details. We keep fund-level data only.{" "}
         {source.guest
@@ -432,13 +438,15 @@ function AddFund({ source, onDone }) {
 function ImportPanel({ source, onDone, onCancel }) {
   const { aaEnabled, panEnabled } = useAuth();
   const [tab, setTab] = useState(panEnabled ? "pan" : aaEnabled ? "aa" : "upload");
-  const tabs = [panEnabled && ["pan", "🪪 Fetch with PAN"], aaEnabled && ["aa", "📱 Fetch with mobile"],
-    ["upload", "📄 Upload statement"], ["manual", "✍️ Add by hand"]];
+  const tabs = [panEnabled && ["pan", IdCard, "Fetch with PAN"], aaEnabled && ["aa", Smartphone, "Fetch with mobile"],
+    ["upload", FileText, "Upload statement"], ["manual", PenLine, "Add by hand"]];
   return (
     <div className="card">
       <div className="importTabs">
-        {tabs.filter(Boolean).map(([k, label]) => (
-          <button key={k} className={`importTab ${tab === k ? "importTab--on" : ""}`} onClick={() => setTab(k)}>{label}</button>
+        {tabs.filter(Boolean).map(([k, Icon, label]) => (
+          <button key={k} className={`importTab ${tab === k ? "importTab--on" : ""}`} onClick={() => setTab(k)}>
+            <Icon size={16} /> {label}
+          </button>
         ))}
       </div>
       {tab === "pan" && <FetchByPan source={source} onDone={onDone} />}
@@ -533,7 +541,7 @@ function Insights({ insights }) {
       <div className="card__title">What to look at</div>
       {insights.map((i) => (
         <div key={i.key} className={`insight insight--${i.level}`}>
-          <div className="insight__title">{LEVEL_ICON[i.level]} {i.title}</div>
+          <div className="insight__title"><InsightIcon level={i.level} /> {i.title}</div>
           <div className="insight__text">{i.text}</div>
         </div>
       ))}
@@ -649,10 +657,10 @@ function HoldingCard({ h, onRemove }) {
               )}
             </div>
           )}
-          {r.size_note && <div className="holding__note">⚠️ {r.size_note}</div>}
+          {r.size_note && <div className="holding__note"><TriangleAlert size={14} className="ico" /> {r.size_note}</div>}
           {h.plan === "Regular" && (
             <div className="holding__note">
-              💸 Regular plan.{h.cost_gap != null && ` Its Direct plan returned about ${pctF(h.cost_gap)} more over the last year.`}{" "}
+              <Banknote size={14} className="ico" /> Regular plan.{h.cost_gap != null && ` Its Direct plan returned about ${pctF(h.cost_gap)} more over the last year.`}{" "}
               Start new SIPs in the Direct plan of the same fund.
             </div>
           )}
@@ -662,7 +670,7 @@ function HoldingCard({ h, onRemove }) {
               {h.alternatives.map((a) => (
                 <div key={a.code} className="alt">
                   <div className="alt__name">
-                    #{a.rank} {a.info_url ? <a href={a.info_url} target="_blank" rel="noopener noreferrer">{a.name} ↗</a> : a.name}
+                    #{a.rank} <Link to={`/fund/${a.code}`}>{a.name}</Link>
                   </div>
                   <div className="alt__meta">3 yr {pctF(a.cagr_3y)} · 5 yr {pctF(a.cagr_5y)} · worst fall {pctF(a.max_drawdown, 0)}</div>
                 </div>
@@ -672,7 +680,8 @@ function HoldingCard({ h, onRemove }) {
           <div className="holding__foot">
             <span className="mutedText">
               {h.units} units · NAV {h.nav ? `₹${h.nav.toFixed(2)}` : "—"} on {fmtDate(h.nav_date)}
-              {h.info_url && <> · <a href={h.info_url} target="_blank" rel="noopener noreferrer">Fund details ↗</a></>}
+              {h.code && <> · <Link to={`/fund/${h.code}`}>Fund page</Link></>}
+              {h.info_url && <> · <a href={h.info_url} target="_blank" rel="noopener noreferrer">Factsheet ↗</a></>}
             </span>
             {h.source === "manual" && <button className="btnDanger" onClick={() => onRemove(h.ids[0])}>Remove</button>}
           </div>
@@ -820,7 +829,7 @@ export default function ReviewScreen() {
 
             {importing ? <ImportPanel source={source} onDone={replace} onCancel={() => setImporting(false)} /> : (
               <div className="resultsActions">
-                <button className="btnOutline" onClick={() => setImporting(true)}>{panEnabled ? "🔄 Fetch again, upload a statement or add a fund" : "📄 Upload a newer statement or add a fund"}</button>
+                <button className="btnOutline" onClick={() => setImporting(true)}>{panEnabled ? <><RefreshCw size={17} /> Fetch again, upload a statement or add a fund</> : <><FileText size={17} /> Upload a newer statement or add a fund</>}</button>
                 <button className="btnDanger" onClick={onDeleteAll}>
                   {source.guest ? "Clear this review" : "Delete my imported portfolio"}
                 </button>
