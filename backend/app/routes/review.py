@@ -159,7 +159,7 @@ GUEST_CONSENT_MESSAGE = ("Please agree to us reading your fund holdings to revie
 
 class GuestHolding(BaseModel):
     id: str = Field(..., min_length=1, max_length=24)
-    source: Literal["cas", "manual"]
+    source: Literal["cas", "manual", "aa", "pan"]
     code: Optional[str] = Field(None, max_length=12)
     isin: Optional[str] = Field(None, max_length=12)
     name: str = Field(..., max_length=200)

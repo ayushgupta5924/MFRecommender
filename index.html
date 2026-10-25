@@ -5,7 +5,17 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="description" content="Build a mutual fund SIP plan from your goals and risk profile, using daily-updated data on every Direct-Growth fund in India." />
-    <meta name="theme-color" content="#1976d2" />
+    <meta name="theme-color" content="#060a13" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap" rel="stylesheet" />
+    <script>
+      // Apply the colour theme before the first paint (src/theme.jsx): ?theme= in the link, else the saved one.
+      try {
+        var t = new URLSearchParams(location.search).get("theme") || localStorage.getItem("mfa:theme");
+        if (t === "midnight" || t === "gold" || t === "daylight") document.documentElement.dataset.theme = t;
+      } catch (e) {}
+    </script>
     <title>MF Advisor – Goal-based Mutual Fund Plans</title>
   </head>
   <body>

@@ -81,13 +81,16 @@ def migrate() -> None:
 
 
 def cleanup() -> None:
-    """Drop expired login codes and sessions, and advice records past their retention date."""
-    from app.db.tables import AuthSession, OtpCode, utcnow
+    """Drop expired login codes and sessions, stale Account Aggregator requests and PAN fetches (with any holdings
+    nobody picked up), and advice records past their retention date."""
+    from app.db.tables import AARequest, AuthSession, OtpCode, PanFetch, utcnow
     from app.services.advice_log import purge_expired
     now = utcnow()
     with SessionLocal() as db:
         db.execute(delete(OtpCode).where(OtpCode.created_at < now - timedelta(days=1)))
         db.execute(delete(AuthSession).where(AuthSession.expires_at < now))
+        db.execute(delete(AARequest).where(AARequest.created_at < now - timedelta(days=1)))
+        db.execute(delete(PanFetch).where(PanFetch.created_at < now - timedelta(days=1)))
         db.commit()
         purge_expired(db)
 

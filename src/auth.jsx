@@ -10,9 +10,15 @@ export function AuthProvider({ children }) {
   const [user, setUser] = useState(undefined);
   // Whether the backend has accounts switched on (database and email configured).
   const [accountsEnabled, setAccountsEnabled] = useState(undefined);
+  // Whether fetching holdings through an Account Aggregator is switched on (Setu keys configured).
+  const [aaEnabled, setAaEnabled] = useState(false);
+  // Whether fetching holdings by PAN from MF Central is switched on (smallcase Gateway keys configured).
+  const [panEnabled, setPanEnabled] = useState(false);
 
   useEffect(() => {
-    getHealth().then((h) => setAccountsEnabled(!!h.accounts_enabled)).catch(() => setAccountsEnabled(false));
+    getHealth()
+      .then((h) => { setAccountsEnabled(!!h.accounts_enabled); setAaEnabled(!!h.aa_enabled); setPanEnabled(!!h.pan_enabled); })
+      .catch(() => setAccountsEnabled(false));
     getMe().then(setUser).catch(() => setUser(null));
   }, []);
 
@@ -21,7 +27,7 @@ export function AuthProvider({ children }) {
     try { await apiLogout(); } finally { clearPlanData(); setUser(null); }
   }, []);
 
-  return <AuthContext.Provider value={{ user, setUser, logout, accountsEnabled }}>{children}</AuthContext.Provider>;
+  return <AuthContext.Provider value={{ user, setUser, logout, accountsEnabled, aaEnabled, panEnabled }}>{children}</AuthContext.Provider>;
 }
 
 // eslint-disable-next-line react-refresh/only-export-components

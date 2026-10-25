@@ -87,6 +87,18 @@ export function guestUpload(file, password, consent) {
   return request("/api/review/guest/upload", { form });
 }
 
+// ── Fetch holdings by mobile number through an Account Aggregator (one-time, read-only consent) ──
+export const startAaFetch = (mobile, consent, alerts) =>
+  request("/api/aa/consent", { json: { mobile, consent, alerts } });
+// key: only for guests, proves the request is theirs.
+export const aaStatus = (id, key) => request("/api/aa/status", { json: { id, key } });
+
+// ── Fetch holdings by PAN from MF Central (read-only; MF Central's OTP is entered in smallcase's window) ──
+// contact: { mobile } or { email }, as registered with the funds.
+export const startPanFetch = (pan, contact, consent, alerts) =>
+  request("/api/pan/start", { json: { pan, ...contact, consent, alerts } });
+export const panStatus = (id, key) => request("/api/pan/status", { json: { id, key } });
+
 // ── Saved plans ──
 export const listPlans = () => request("/api/plans");
 export const getPlan = (id) => request(`/api/plans/${id}`);

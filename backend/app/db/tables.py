@@ -82,6 +82,45 @@ class SavedPlan(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow, index=True)
 
 
+class AARequest(Base):
+    """A one-time Account Aggregator consent we asked for (services/aa.py).
+
+    Only ids and progress: no mobile number, and the fetched holdings go to the guest's browser or the
+    account's portfolio, never here. A guest proves the request is theirs with a key only their browser has.
+    """
+    __tablename__ = "aa_requests"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    consent_id: Mapped[str] = mapped_column(String(64), unique=True, index=True)
+    session_id: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
+    user_id: Mapped[Optional[int]] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=True, index=True)
+    guest_key_hash: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
+    status: Mapped[str] = mapped_column(String(12))           # consent | data | done | failed
+    data_from: Mapped[str] = mapped_column(String(30))
+    data_to: Mapped[str] = mapped_column(String(30))
+    error: Mapped[Optional[str]] = mapped_column(String(300), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow, index=True)
+
+
+class PanFetch(Base):
+    """A fetch of holdings by PAN from MF Central through smallcase Gateway (services/mfc.py).
+
+    No PAN, phone or email. smallcase's webhook leaves the parsed fund-level holdings here only until the
+    investor's browser picks them up (then they're cleared), or for a day at most. A guest proves the fetch is
+    theirs with a key only their browser has.
+    """
+    __tablename__ = "pan_fetches"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    transaction_id: Mapped[str] = mapped_column(String(64), unique=True, index=True)
+    user_id: Mapped[Optional[int]] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=True, index=True)
+    guest_key_hash: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
+    status: Mapped[str] = mapped_column(String(12))           # waiting | ready | done | failed
+    holdings: Mapped[Optional[list]] = mapped_column(JSON, nullable=True)
+    statement: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
+    warnings: Mapped[Optional[list]] = mapped_column(JSON, nullable=True)
+    error: Mapped[Optional[str]] = mapped_column(String(300), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow, index=True)
+
+
 class AdviceRecord(Base):
     """Every plan and portfolio review we show, kept for the SEBI retention period.
 

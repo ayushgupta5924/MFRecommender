@@ -1,18 +1,21 @@
 /* Long-form text pages: Investor Charter and other disclosures. */
-.infoPage h1 { font-size: 22px; font-weight: 800; color: #111; margin-bottom: 6px; }
-.infoPage h2 { font-size: 16px; font-weight: 700; color: #111; margin-bottom: 10px; }
-.infoPage > .mutedText { margin-bottom: 18px; }
-.infoPage a { color: #1976d2; font-weight: 600; overflow-wrap: anywhere; }
-.charterList { padding-left: 20px; font-size: 14px; color: #333; line-height: 1.6; }
+.infoPage h1 { font-family: var(--font-display); font-size: 30px; font-weight: 800; color: var(--text); margin-bottom: 8px; letter-spacing: -0.6px; }
+.infoPage h2 { font-family: var(--font-display); font-size: 17px; font-weight: 700; color: var(--text); margin-bottom: 10px; }
+.infoPage > .mutedText { margin-bottom: 22px; }
+.infoPage p, .infoPage li { color: var(--text-2); }
+.infoPage a { color: var(--accent-text); font-weight: 600; overflow-wrap: anywhere; }
+.charterList { padding-left: 20px; font-size: 14px; color: var(--text-2); line-height: 1.65; }
 .charterList li { margin-bottom: 6px; }
+.charterList li::marker { color: var(--accent); }
 .charterList .charterList { margin-top: 6px; }
 .charterList--ordered { list-style: lower-roman; }
 
 /* Tables (complaints data, privacy notice): scroll sideways on narrow screens rather than squash. */
-.tableWrap { overflow-x: auto; margin: 4px 0 8px; }
+.tableWrap { overflow-x: auto; margin: 4px 0 8px; border-radius: 12px; border: 1px solid var(--border); }
 .dataTable { border-collapse: collapse; width: 100%; font-size: 13px; min-width: 560px; }
 .dataTable--text { min-width: 520px; }
-.dataTable th, .dataTable td { border: 1px solid #e5e5e5; padding: 7px 9px; text-align: left; vertical-align: top; }
-.dataTable th { background: #f5f7fa; font-weight: 700; color: #333; }
-.dataTable__total td { font-weight: 700; background: #fafafa; }
+.dataTable th, .dataTable td { border-bottom: 1px solid var(--border); padding: 9px 11px; text-align: left; vertical-align: top; color: var(--text-2); }
+.dataTable td + td, .dataTable th + th { border-left: 1px solid var(--border); }
+.dataTable th { background: var(--sunken); font-weight: 700; color: var(--text); }
+.dataTable__total td { font-weight: 700; background: var(--sunken); color: var(--text); }
 .tableNote { font-size: 12px; margin-top: 8px; line-height: 1.6; }

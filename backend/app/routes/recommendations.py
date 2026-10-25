@@ -8,6 +8,8 @@ from app.services.catalog import BUCKETS
 from app.services.recommendation_engine import RecommendationEngine
 from typing import List, Optional
 
+from app.services.aa import aa_enabled
+from app.services.mfc import mfc_enabled
 from app.services.auth import accounts_enabled, optional_user
 import logging
 
@@ -58,6 +60,8 @@ def health():
         "generated_at": data.get("generated_at"),
         "funds_ranked": sum(len(b["funds"]) for b in data["buckets"].values()),
         "accounts_enabled": accounts_enabled(),
+        "aa_enabled": aa_enabled(),
+        "pan_enabled": mfc_enabled(),
     }
 
 

@@ -1,7 +1,7 @@
 """Turns a CAMS / KFintech Consolidated Account Statement (CAS) into holdings we can review.
 
 A holding is a plain dict so it can be stored as JSON:
-    id, source ("cas" | "manual"), code (AMFI scheme code), isin, name, amc,
+    id, source ("cas" | "manual" | "aa" | "pan"), code (AMFI scheme code), isin, name, amc,
     units, cost, cas_nav, cas_nav_date, open_units, txns
 where txns is a list of [iso_date, type, amount, units] from the statement.
 Only fund-level data is kept; the investor's name, PAN, email, phone and

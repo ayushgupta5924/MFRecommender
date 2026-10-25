@@ -1,14 +1,14 @@
-.accountCard__name { font-size: 20px; font-weight: 800; color: #111; margin-bottom: 2px; }
+.accountCard__name { font-family: var(--font-display); font-size: 22px; font-weight: 800; color: var(--text); margin-bottom: 2px; letter-spacing: -0.3px; }
 .accountLink {
   display: flex; justify-content: space-between; align-items: center; text-decoration: none;
-  color: #1565c0; font-weight: 700; font-size: 15px;
+  color: var(--accent-text); font-weight: 700; font-size: 15px;
 }
 .accountLink__arrow { font-size: 18px; }
-.planRow { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 14px 18px; }
-.planRow__main { font: inherit; text-align: left; background: none; border: none; cursor: pointer; flex: 1; min-width: 0; padding: 0; }
-.planRow__name { font-size: 15px; font-weight: 700; color: #222; margin-bottom: 2px; }
-.planRow__main:hover .planRow__name { color: #1565c0; }
-.dangerZone { margin-top: 32px; padding-top: 16px; border-top: 1px solid #e5e5e5; }
-.alertToggle { display: flex; gap: 12px; align-items: flex-start; cursor: pointer; font-size: 14px; color: #222; }
+.planRow { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 15px 20px; }
+.planRow__main { font: inherit; color: inherit; text-align: left; background: none; border: none; cursor: pointer; flex: 1; min-width: 0; padding: 0; }
+.planRow__name { font-size: 15px; font-weight: 700; color: var(--text); margin-bottom: 2px; }
+.planRow__main:hover .planRow__name { color: var(--accent-text); }
+.dangerZone { margin-top: 32px; padding-top: 16px; border-top: 1px solid var(--border); }
+.alertToggle { display: flex; gap: 12px; align-items: flex-start; cursor: pointer; font-size: 14px; color: var(--text); }
 .alertToggle input { width: 18px; height: 18px; margin-top: 2px; flex-shrink: 0; }
 .alertToggle span { display: flex; flex-direction: column; gap: 2px; }
